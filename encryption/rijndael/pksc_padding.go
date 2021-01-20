@@ -21,7 +21,7 @@ import (
 	"bytes"
 	"errors"
 
-	"github.com/iTrellis/go-common"
+	"github.com/iTrellis/common"
 )
 
 // Errors padding & unpadding can return

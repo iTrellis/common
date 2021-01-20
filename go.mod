@@ -1,4 +1,4 @@
-module github.com/iTrellis/go-common
+module github.com/iTrellis/common
 
 go 1.13
 

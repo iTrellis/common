@@ -20,7 +20,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/iTrellis/go-common/files"
+	"github.com/iTrellis/common/files"
 )
 
 const (

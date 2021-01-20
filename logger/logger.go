@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/iTrellis/go-common/event"
+	"github.com/iTrellis/common/event"
 )
 
 // Logger 日志对象

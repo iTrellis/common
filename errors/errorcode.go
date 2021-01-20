@@ -22,7 +22,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/iTrellis/go-common/data-structures/stack"
+	"github.com/iTrellis/common/data-structures/stack"
 	"github.com/google/uuid"
 )
 

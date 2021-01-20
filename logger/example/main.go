@@ -20,7 +20,7 @@ package main
 import (
 	"time"
 
-	"github.com/iTrellis/go-common/logger"
+	"github.com/iTrellis/common/logger"
 )
 
 type msg struct {

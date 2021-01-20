@@ -23,7 +23,7 @@ import (
 
 // Namespace
 const (
-	namespace = "trellis::go-common"
+	namespace = "iTrellis::common"
 )
 
 // FormatNamespaceString return string with namespace

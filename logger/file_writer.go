@@ -29,8 +29,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iTrellis/go-common/event"
-	"github.com/iTrellis/go-common/files"
+	"github.com/iTrellis/common/event"
+	"github.com/iTrellis/common/files"
 )
 
 type fileWriter struct {

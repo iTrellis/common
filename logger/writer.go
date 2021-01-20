@@ -23,7 +23,7 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/iTrellis/go-common/event"
+	"github.com/iTrellis/common/event"
 )
 
 // Writer 写对象

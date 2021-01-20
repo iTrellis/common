@@ -23,7 +23,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/iTrellis/go-common/event"
+	"github.com/iTrellis/common/event"
 )
 
 // Subscriber 注册个人的操作函数

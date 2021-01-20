@@ -18,7 +18,7 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 package main
 
 import (
-	"github.com/iTrellis/go-common/builder"
+	"github.com/iTrellis/common/builder"
 )
 
 func main() {

@@ -23,7 +23,7 @@ import (
 	"os"
 	"reflect"
 
-	"github.com/iTrellis/go-common/event"
+	"github.com/iTrellis/common/event"
 )
 
 type chanWriter struct {

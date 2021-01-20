@@ -21,8 +21,8 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/iTrellis/go-common/formats"
-	"github.com/iTrellis/go-common/testutils"
+	"github.com/iTrellis/common/formats"
+	"github.com/iTrellis/common/testutils"
 )
 
 func Test_QuoteToASCIIWithoutBackslashed(t *testing.T) {
