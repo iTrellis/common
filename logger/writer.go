@@ -28,9 +28,7 @@ import (
 
 // Writer 写对象
 type Writer interface {
-	// io.Writer
 	event.Subscriber
-	Stop()
 }
 
 func generateLogs(evt *Event, separator string) string {

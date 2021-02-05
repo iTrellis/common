@@ -147,7 +147,7 @@ func FileWiterMoveFileType(typ MoveFileType) OptionFileWriter {
 func FileWriter(log Logger, opts ...OptionFileWriter) (Writer, error) {
 	fw := &fileWriter{
 		logger:   log,
-		stopChan: make(chan bool),
+		stopChan: make(chan bool, 1),
 	}
 
 	err := fw.init(opts...)
@@ -161,7 +161,12 @@ func FileWriter(log Logger, opts ...OptionFileWriter) (Writer, error) {
 		return nil, err
 	}
 
-	return fw, nil
+	_, err = log.Subscriber(fw.subscriber)
+	if err != nil {
+		fw.stopChan <- true
+		return nil, err
+	}
+	return fw, err
 }
 
 var fileExecutor = files.New()

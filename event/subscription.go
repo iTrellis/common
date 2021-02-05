@@ -23,11 +23,11 @@ import "fmt"
 type Subscriber interface {
 	GetID() string
 	Publish(values ...interface{})
+	Stop()
 }
 
 // NewDefSubscriber 生成默认的消费者
 func NewDefSubscriber(sub interface{}) (Subscriber, error) {
-
 	var subscriber Subscriber
 	switch s := sub.(type) {
 	case func(...interface{}):
@@ -60,3 +60,6 @@ func (p *defSubscriber) GetID() string {
 func (p *defSubscriber) Publish(values ...interface{}) {
 	p.fn(values...)
 }
+
+// Stop do nothing
+func (*defSubscriber) Stop() {}

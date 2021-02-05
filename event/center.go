@@ -115,8 +115,8 @@ func (p *Center) Publish(eventName string, evts ...interface{}) {
 	}
 
 	p.locker.RLock()
-	defer p.locker.RUnlock()
 	group, exist := p.groups[eventName]
+	p.locker.RUnlock()
 	if !exist {
 		return
 	}

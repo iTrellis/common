@@ -44,12 +44,12 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	_, _ = log.Subscriber(w)
-	_, _ = log.Subscriber(fw)
+	// _, _ = log.Subscriber(w)
+	// _, _ = log.Subscriber(fw)
 
 	log = log.WithPrefix(logger.Stack)
 
-	for index := 0; index < 100; index++ {
+	for index := 0; index < 10; index++ {
 		logger.Debug(log, "example_debug", index, &msg{Name: "haha", Age: 123})
 
 		log.Info("example\tinfo", index, &msg{Name: "i am  info", Age: 123})
@@ -61,6 +61,7 @@ func main() {
 
 	w.Stop()
 	fw.Stop()
+	log.ClearSubscribers()
 	log.Error("example error", &msg{Name: "non print", Age: 123})
 	time.Sleep(time.Second)
 }

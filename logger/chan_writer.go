@@ -68,7 +68,7 @@ func ChanWriter(log Logger, opts ...OptionChanWriter) (Writer, error) {
 	c := &chanWriter{
 		logger:   log,
 		out:      os.Stdout,
-		stopChan: make(chan bool),
+		stopChan: make(chan bool, 1),
 	}
 	c.init(opts...)
 
@@ -77,6 +77,12 @@ func ChanWriter(log Logger, opts ...OptionChanWriter) (Writer, error) {
 	var err error
 	c.subscriber, err = event.NewDefSubscriber(c.Publish)
 	if err != nil {
+		return nil, err
+	}
+
+	_, err = log.Subscriber(c.subscriber)
+	if err != nil {
+		c.stopChan <- true
 		return nil, err
 	}
 

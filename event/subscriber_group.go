@@ -77,9 +77,8 @@ func (p *defSubscriberGroup) Subscriber(sub interface{}) (Subscriber, error) {
 	}
 
 	p.locker.Lock()
-	defer p.locker.Unlock()
-
 	p.subscribers[subscriber.GetID()] = subscriber
+	p.locker.Unlock()
 	return subscriber, nil
 }
 
@@ -93,14 +92,14 @@ func (p *defSubscriberGroup) RemoveSubscriber(ids ...string) error {
 	if 0 == len(ids) {
 		return errors.New("empty input sub ids")
 	}
-	p.locker.Lock()
-	defer p.locker.Unlock()
 
 	for _, v := range ids {
 		if 0 == len(v) {
 			return errors.New("empty sub id")
 		}
+		p.locker.Lock()
 		delete(p.subscribers, v)
+		p.locker.Unlock()
 	}
 
 	return nil
@@ -108,7 +107,14 @@ func (p *defSubscriberGroup) RemoveSubscriber(ids ...string) error {
 
 // Publish 发布消息
 func (p *defSubscriberGroup) Publish(values ...interface{}) {
-	for _, sub := range p.subscribers {
+	var subscribers []Subscriber
+	p.locker.RLock()
+	for _, s := range p.subscribers {
+		subscribers = append(subscribers, s)
+	}
+	p.locker.RUnlock()
+
+	for _, sub := range subscribers {
 		switch p.model {
 		case SubscriberModelGoutine:
 			go sub.Publish(values...)
@@ -120,6 +126,8 @@ func (p *defSubscriberGroup) Publish(values ...interface{}) {
 
 // ClearSubscribers 全部清理
 func (p *defSubscriberGroup) ClearSubscribers() {
+	p.locker.Lock()
+	defer p.locker.Unlock()
 	for key, sub := range p.subscribers {
 		if sub == nil {
 			delete(p.subscribers, key)
