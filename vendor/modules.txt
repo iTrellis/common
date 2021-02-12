@@ -4,7 +4,7 @@ github.com/codegangsta/inject
 github.com/common-nighthawk/go-figure
 # github.com/dimiro1/banner v1.1.0
 github.com/dimiro1/banner
-# github.com/google/uuid v1.1.5
+# github.com/google/uuid v1.2.0
 github.com/google/uuid
 # github.com/mattn/go-colorable v0.1.8
 github.com/mattn/go-colorable
