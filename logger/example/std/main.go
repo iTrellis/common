@@ -29,29 +29,14 @@ type msg struct {
 }
 
 func main() {
-	log := logger.NewLogger()
+	log := logger.StdNewLogger()
 
-	w, err := logger.NewStdWriter(log, logger.WriteLevel(logger.DebugLevel), logger.Color())
-	if err != nil {
-		panic(err)
-	}
-	fw, err := logger.FileWriter(log,
-		logger.FileWriterFileName("haha.log"),
-		logger.FileWriterLevel(logger.DebugLevel),
-		logger.FileWriterMoveFileType(1),
-	)
-	if err != nil {
-		panic(err)
-	}
+	defer log.ClearSubscribers()
 
 	log = log.WithPrefix(logger.Stack)
 
 	for index := 0; index < 10; index++ {
 		logger.Debug(log, "example_debug", index, &msg{Name: "haha", Age: 123})
-
-		if index == 5 {
-			log.SetLevel(logger.InfoLevel)
-		}
 
 		log.Info("example\tinfo", index, &msg{Name: "i am  info", Age: 123})
 		log.Warn("example_warn", index, &msg{Name: "i am warn", Age: 123})
@@ -59,10 +44,4 @@ func main() {
 		log.Critical("example_critical", index, &msg{Name: "i am critial", Age: 123})
 		time.Sleep(time.Second)
 	}
-
-	w.Stop()
-	fw.Stop()
-	log.ClearSubscribers()
-	log.Error("example error", &msg{Name: "non print", Age: 123})
-	time.Sleep(time.Second)
 }

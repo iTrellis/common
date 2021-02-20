@@ -39,6 +39,8 @@ type Logger interface {
 	With(params ...interface{}) Logger
 	WithPrefix(prefixes ...interface{}) Logger
 
+	SetLevel(lvl Level)
+
 	event.SubscriberGroup
 }
 
@@ -47,6 +49,21 @@ func NewLogger() Logger {
 	return &context{
 		eventGroup: event.NewSubscriberGroup(),
 	}
+}
+
+// StdNewLogger 获取日志实例
+func StdNewLogger() Logger {
+	l := NewLogger()
+	w, err := NewStdWriter(l)
+	if err != nil {
+		panic(err)
+	}
+	_, err = l.Subscriber(w)
+	if err != nil {
+		panic(err)
+	}
+
+	return l
 }
 
 // Caller fileds function
@@ -127,6 +144,11 @@ func (p *context) Critical(msg string, fields ...interface{}) {
 // Criticalf 严重的
 func (p *context) Criticalf(msg string, fields ...interface{}) {
 	p.Critical(fmt.Sprintf(msg, fields...))
+}
+
+// SetLevel set logger level
+func (p *context) SetLevel(lvl Level) {
+	p.Publish(lvl)
 }
 
 // With 异常

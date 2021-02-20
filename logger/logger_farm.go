@@ -19,7 +19,7 @@ package logger
 
 const (
 	// 默认的通道大小
-	defaultChanBuffer int = 10000
+	defaultChanBuffer int = 100000
 )
 
 // Debug 调试

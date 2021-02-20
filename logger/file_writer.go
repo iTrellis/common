@@ -26,7 +26,6 @@ import (
 	"reflect"
 	"sort"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/iTrellis/common/event"
@@ -36,35 +35,14 @@ import (
 type fileWriter struct {
 	logger Logger
 
-	opts fileWriterOptions
+	options fileWriterOptions
 
-	// filePath  string
-
-	stopChan chan bool
-	logChan  chan *Event
+	logChan chan *Event
 
 	subscriber event.Subscriber
-}
 
-type fileWriterOptions struct {
-	level Level
+	stopChan chan bool
 
-	goNum int
-
-	separator  string
-	fileName   string
-	maxLength  int64
-	chanBuffer int
-
-	moveFileType MoveFileType
-	// 最大保留日志个数，如果为0则全部保留
-	maxBackupFile int
-}
-
-type routingFileWriter struct {
-	locker        sync.Mutex
-	opts          fileWriterOptions
-	fileName      string
 	writeFileTime time.Time
 	lastMoveFlag  int
 	ticker        *time.Ticker
@@ -81,72 +59,11 @@ const (
 	MoveFileTypeDaily                         // 按天移动
 )
 
-// OptionFileWriter 操作配置函数
-type OptionFileWriter func(*fileWriterOptions)
-
-// FileWiterLevel 设置等级
-func FileWiterLevel(lvl Level) OptionFileWriter {
-	return func(f *fileWriterOptions) {
-		f.level = lvl
-	}
-}
-
-// FileWiterRoutings 设置Gouting数量
-func FileWiterRoutings(num int) OptionFileWriter {
-	return func(f *fileWriterOptions) {
-		if num < 1 {
-			num = 1
-		}
-		f.goNum = num
-	}
-}
-
-// FileWiterBuffer 设置Chan的大小
-func FileWiterBuffer(buffer int) OptionFileWriter {
-	return func(f *fileWriterOptions) {
-		f.chanBuffer = buffer
-	}
-}
-
-// FileWiterSeparator 设置打印分隔符
-func FileWiterSeparator(separator string) OptionFileWriter {
-	return func(f *fileWriterOptions) {
-		f.separator = separator
-	}
-}
-
-// FileWiterFileName 设置文件名
-func FileWiterFileName(name string) OptionFileWriter {
-	return func(f *fileWriterOptions) {
-		f.fileName = name
-	}
-}
-
-// FileWiterMaxLength 设置最大文件大小
-func FileWiterMaxLength(length int64) OptionFileWriter {
-	return func(f *fileWriterOptions) {
-		f.maxLength = length
-	}
-}
-
-// FileWiterMaxBackupFile 文件最大数量
-func FileWiterMaxBackupFile(num int) OptionFileWriter {
-	return func(f *fileWriterOptions) {
-		f.maxBackupFile = num
-	}
-}
-
-// FileWiterMoveFileType 设置移动文件的类型
-func FileWiterMoveFileType(typ MoveFileType) OptionFileWriter {
-	return func(f *fileWriterOptions) {
-		f.moveFileType = typ
-	}
-}
-
 // FileWriter 标准窗体的输出对象
 func FileWriter(log Logger, opts ...OptionFileWriter) (Writer, error) {
 	fw := &fileWriter{
 		logger:   log,
+		ticker:   time.NewTicker(time.Second * 30),
 		stopChan: make(chan bool, 1),
 	}
 
@@ -163,7 +80,6 @@ func FileWriter(log Logger, opts ...OptionFileWriter) (Writer, error) {
 
 	_, err = log.Subscriber(fw.subscriber)
 	if err != nil {
-		fw.stopChan <- true
 		return nil, err
 	}
 	return fw, err
@@ -174,59 +90,45 @@ var fileExecutor = files.New()
 func (p *fileWriter) init(opts ...OptionFileWriter) error {
 
 	for _, o := range opts {
-		o(&p.opts)
+		o(&p.options)
 	}
 
-	if len(p.opts.fileName) == 0 {
+	if len(p.options.fileName) == 0 {
 		return errors.New("file name not exist")
 	}
 
-	if p.opts.chanBuffer == 0 {
+	if p.options.chanBuffer == 0 {
 		p.logChan = make(chan *Event, defaultChanBuffer)
 	} else {
-		p.logChan = make(chan *Event, p.opts.chanBuffer)
+		p.logChan = make(chan *Event, p.options.chanBuffer)
 	}
 
-	if len(p.opts.separator) == 0 {
-		p.opts.separator = "\t"
+	if len(p.options.separator) == 0 {
+		p.options.separator = "\t"
 	}
 
-	for i := 0; i < p.opts.goNum; i++ {
-		rfw := routingFileWriter{
-			opts:          p.opts,
-			writeFileTime: time.Now(),
-			ticker:        time.NewTicker(time.Second * 30),
+	fi, err := fileExecutor.FileInfo(p.options.fileName)
+	if err == nil {
+		// 说明文件存在
+		p.writeFileTime = fi.ModTime()
+	} else {
+		// 没有文件创建文件
+		_, err = fileExecutor.WriteAppend(p.options.fileName, "")
+		if err != nil {
+			return err
 		}
-
-		if p.opts.goNum == 1 {
-			rfw.fileName = p.opts.fileName
-		} else {
-			rfw.fileName = fmt.Sprintf("%s.%d", p.opts.fileName, i)
-		}
-
-		fi, err := fileExecutor.FileInfo(rfw.fileName)
-		if err == nil {
-			// 说明文件存在
-			rfw.writeFileTime = fi.ModTime()
-		} else {
-			// 没有文件创建文件
-			_, err = fileExecutor.WriteAppend(rfw.fileName, "")
-			if err != nil {
-				return err
-			}
-		}
-
-		switch p.opts.moveFileType {
-		case MoveFileTypePerMinite:
-			rfw.lastMoveFlag = rfw.writeFileTime.Minute()
-		case MoveFileTypeHourly:
-			rfw.lastMoveFlag = rfw.writeFileTime.Hour()
-		case MoveFileTypeDaily:
-			rfw.lastMoveFlag = rfw.writeFileTime.Day()
-		}
-
-		rfw.looperLog(p)
 	}
+
+	switch p.options.moveFileType {
+	case MoveFileTypePerMinite:
+		p.lastMoveFlag = p.writeFileTime.Minute()
+	case MoveFileTypeHourly:
+		p.lastMoveFlag = p.writeFileTime.Hour()
+	case MoveFileTypeDaily:
+		p.lastMoveFlag = p.writeFileTime.Day()
+	}
+
+	go p.looperLog()
 
 	return nil
 }
@@ -238,6 +140,8 @@ func (p *fileWriter) Publish(evts ...interface{}) {
 			p.logChan <- &eType
 		case *Event:
 			p.logChan <- eType
+		case Level:
+			p.options.level = eType
 		default:
 			panic(fmt.Errorf("unsupported event type: %s", reflect.TypeOf(evt).Name()))
 		}
@@ -245,44 +149,41 @@ func (p *fileWriter) Publish(evts ...interface{}) {
 }
 
 func (p *fileWriter) Write(bs []byte) (int, error) {
-	return fileExecutor.WriteAppendBytes(p.opts.fileName, bs)
+	return fileExecutor.WriteAppendBytes(p.options.fileName, bs)
 }
 
-func (p *routingFileWriter) looperLog(fw *fileWriter) {
-	go func() {
-		for {
-			select {
-			case log := <-fw.logChan:
-				if log.Level >= p.opts.level {
-					_, _ = p.innerLog(log)
-				}
-			case t := <-p.ticker.C:
-				flag := 0
-				switch p.opts.moveFileType {
-				case MoveFileTypePerMinite:
-					flag = t.Minute()
-				case MoveFileTypeHourly:
-					flag = t.Hour()
-				case MoveFileTypeDaily:
-					flag = t.Day()
-				}
-				if p.lastMoveFlag == flag {
-					continue
-				}
-				p.locker.Lock()
-				_ = p.judgeMoveFile()
-				p.locker.Unlock()
-			case <-fw.stopChan:
-				return
+func (p *fileWriter) looperLog() {
+	for {
+		select {
+		case log := <-p.logChan:
+			if log.Level >= p.options.level {
+				_, _ = p.innerLog(log)
 			}
+		case t := <-p.ticker.C:
+			flag := 0
+			switch p.options.moveFileType {
+			case MoveFileTypePerMinite:
+				flag = t.Minute()
+			case MoveFileTypeHourly:
+				flag = t.Hour()
+			case MoveFileTypeDaily:
+				flag = t.Day()
+			}
+			if p.lastMoveFlag == flag {
+				continue
+			}
+			_ = p.judgeMoveFile()
+		case <-p.stopChan:
+			p.ticker.Stop()
+			return
 		}
-	}()
+	}
 }
 
-func (p *routingFileWriter) judgeMoveFile() error {
+func (p *fileWriter) judgeMoveFile() error {
 
 	timeNow, flag := time.Now(), 0
-	switch p.opts.moveFileType {
+	switch p.options.moveFileType {
 	case MoveFileTypePerMinite:
 		flag = timeNow.Minute()
 	case MoveFileTypeHourly:
@@ -301,9 +202,9 @@ func (p *routingFileWriter) judgeMoveFile() error {
 	return p.moveFile()
 }
 
-func (p *routingFileWriter) moveFile() error {
+func (p *fileWriter) moveFile() error {
 	var timeStr string
-	switch p.opts.moveFileType {
+	switch p.options.moveFileType {
 	case MoveFileTypePerMinite:
 		timeStr = time.Now().Format("200601021504-05.999999999")
 	case MoveFileTypeHourly:
@@ -312,7 +213,7 @@ func (p *routingFileWriter) moveFile() error {
 		timeStr = time.Now().Format("20060102-150405.999999999")
 	}
 
-	err := fileExecutor.Rename(p.fileName, fmt.Sprintf("%s_%s", p.fileName, timeStr))
+	err := fileExecutor.Rename(p.options.fileName, fmt.Sprintf("%s_%s", p.options.fileName, timeStr))
 	if err != nil {
 		return err
 	}
@@ -321,17 +222,17 @@ func (p *routingFileWriter) moveFile() error {
 		return err
 	}
 
-	_, err = fileExecutor.Write(p.fileName, "")
+	_, err = fileExecutor.Write(p.options.fileName, "")
 
 	return err
 }
 
-func (p *routingFileWriter) removeOldFiles() error {
-	if 0 == p.opts.maxBackupFile {
+func (p *fileWriter) removeOldFiles() error {
+	if 0 == p.options.maxBackupFile {
 		return nil
 	}
 
-	path := filepath.Dir(p.fileName)
+	path := filepath.Dir(p.options.fileName)
 
 	// 获取日志文件列表
 	dirLis, err := ioutil.ReadDir(path)
@@ -341,7 +242,7 @@ func (p *routingFileWriter) removeOldFiles() error {
 
 	// 根据文件名过滤日志文件
 	fileSort := FileSort{}
-	fileNameSplit := strings.Split(p.fileName, "/")
+	fileNameSplit := strings.Split(p.options.fileName, "/")
 	filePrefix := fmt.Sprintf("%s_", fileNameSplit[len(fileNameSplit)-1])
 	for _, f := range dirLis {
 		if strings.Contains(f.Name(), filePrefix) {
@@ -349,13 +250,13 @@ func (p *routingFileWriter) removeOldFiles() error {
 		}
 	}
 
-	if len(fileSort) <= int(p.opts.maxBackupFile) {
+	if len(fileSort) <= int(p.options.maxBackupFile) {
 		return nil
 	}
 
 	// 根据文件修改日期排序，保留最近的N个文件
 	sort.Sort(fileSort)
-	for _, f := range fileSort[p.opts.maxBackupFile:] {
+	for _, f := range fileSort[p.options.maxBackupFile:] {
 		err := os.Remove(path + "/" + f.Name())
 		if err != nil {
 			return err
@@ -365,26 +266,24 @@ func (p *routingFileWriter) removeOldFiles() error {
 	return nil
 }
 
-func (p *routingFileWriter) innerLog(evt *Event) (n int, err error) {
-	p.locker.Lock()
-	defer p.locker.Unlock()
+func (p *fileWriter) innerLog(evt *Event) (n int, err error) {
 
 	if err = p.judgeMoveFile(); err != nil {
 		return
 	}
 
-	n, err = p.Write([]byte(generateLogs(evt, p.opts.separator)))
+	n, err = p.Write([]byte(generateLogs(evt, p.options.separator)))
 
-	if p.opts.maxLength == 0 {
+	if p.options.maxLength == 0 {
 		return
 	}
 
-	fi, e := fileExecutor.FileInfo(p.fileName)
+	fi, e := fileExecutor.FileInfo(p.options.fileName)
 	if e != nil {
 		return 0, e
 	}
 
-	if p.opts.maxLength > fi.Size() {
+	if p.options.maxLength > fi.Size() {
 		return
 	}
 
@@ -393,12 +292,8 @@ func (p *routingFileWriter) innerLog(evt *Event) (n int, err error) {
 	return
 }
 
-func (p *routingFileWriter) Write(bs []byte) (int, error) {
-	return fileExecutor.WriteAppendBytes(p.fileName, bs)
-}
-
 func (p *fileWriter) Level() Level {
-	return p.opts.level
+	return p.options.level
 }
 
 func (p *fileWriter) GetID() string {
@@ -409,7 +304,10 @@ func (p *fileWriter) Stop() {
 	if err := p.logger.RemoveSubscriber(p.subscriber.GetID()); err != nil {
 		p.logger.Criticalf("failed remove Chan Writer: %s", err.Error())
 	}
+
 	p.stopChan <- true
+
+	close(p.logChan)
 }
 
 // FileSort 文件排序

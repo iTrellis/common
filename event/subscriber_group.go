@@ -97,9 +97,16 @@ func (p *defSubscriberGroup) RemoveSubscriber(ids ...string) error {
 		if 0 == len(v) {
 			return errors.New("empty sub id")
 		}
+		p.locker.RLock()
+		sub, ok := p.subscribers[v]
+		p.locker.RUnlock()
+		if !ok {
+			continue
+		}
 		p.locker.Lock()
 		delete(p.subscribers, v)
 		p.locker.Unlock()
+		sub.Stop()
 	}
 
 	return nil
@@ -129,8 +136,7 @@ func (p *defSubscriberGroup) ClearSubscribers() {
 	p.locker.Lock()
 	defer p.locker.Unlock()
 	for key, sub := range p.subscribers {
-		if sub == nil {
-			delete(p.subscribers, key)
-		}
+		delete(p.subscribers, key)
+		sub.Stop()
 	}
 }
