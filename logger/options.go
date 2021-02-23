@@ -17,104 +17,89 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 package logger
 
-type Option func(*Options)
+import "io"
 
-type Options struct {
-	level     Level
-	buffer    int
-	separator string
-	color     bool
-}
+type STDOption func(*STDOptions)
 
-// WriteLevel 设置等级
-func WriteLevel(lvl Level) Option {
-	return func(c *Options) {
+// STDLevel set std logger level
+func STDLevel(lvl Level) STDOption {
+	return func(c *STDOptions) {
 		c.level = lvl
 	}
 }
 
-// Buffer 设置Chan的大小
-func Buffer(buffer int) Option {
-	return func(c *Options) {
-		c.buffer = buffer
+// STDWriter io writer
+func STDWriter(w io.Writer) STDOption {
+	return func(c *STDOptions) {
+		c.writer = w
 	}
 }
 
-// Separator 设置打印分隔符
-func Separator(separator string) Option {
-	return func(c *Options) {
-		c.separator = separator
-	}
-}
+// FileOption 操作配置函数
+type FileOption func(*FileOptions)
 
-// Color 设置打印分隔符
-func Color() Option {
-	return func(c *Options) {
-		c.color = true
-	}
-}
-
-type fileWriterOptions struct {
-	level Level
-
-	separator  string
-	fileName   string
-	maxLength  int64
-	chanBuffer int
-
-	moveFileType MoveFileType
-	// 最大保留日志个数，如果为0则全部保留
-	maxBackupFile int
-}
-
-// OptionFileWriter 操作配置函数
-type OptionFileWriter func(*fileWriterOptions)
-
-// FileWriterLevel 设置等级
-func FileWriterLevel(lvl Level) OptionFileWriter {
-	return func(f *fileWriterOptions) {
+// FileLevel 设置等级
+func FileLevel(lvl Level) FileOption {
+	return func(f *FileOptions) {
 		f.level = lvl
 	}
 }
 
-// FileWriterBuffer 设置Chan的大小
-func FileWriterBuffer(buffer int) OptionFileWriter {
-	return func(f *fileWriterOptions) {
+// FileBuffer 设置Chan的大小
+func FileBuffer(buffer int) FileOption {
+	return func(f *FileOptions) {
 		f.chanBuffer = buffer
 	}
 }
 
-// FileWriterSeparator 设置打印分隔符
-func FileWriterSeparator(separator string) OptionFileWriter {
-	return func(f *fileWriterOptions) {
+// FileSeparator 设置打印分隔符
+func FileSeparator(separator string) FileOption {
+	return func(f *FileOptions) {
 		f.separator = separator
 	}
 }
 
-// FileWriterFileName 设置文件名
-func FileWriterFileName(name string) OptionFileWriter {
-	return func(f *fileWriterOptions) {
+// FileFileName 设置文件名
+func FileFileName(name string) FileOption {
+	return func(f *FileOptions) {
 		f.fileName = name
 	}
 }
 
-// FileWriterMaxLength 设置最大文件大小
-func FileWriterMaxLength(length int64) OptionFileWriter {
-	return func(f *fileWriterOptions) {
+// FileMaxLength 设置最大文件大小
+func FileMaxLength(length int64) FileOption {
+	return func(f *FileOptions) {
 		f.maxLength = length
 	}
 }
 
-// FileWriterMaxBackupFile 文件最大数量
-func FileWriterMaxBackupFile(num int) OptionFileWriter {
-	return func(f *fileWriterOptions) {
+// FileMaxBackupFile 文件最大数量
+func FileMaxBackupFile(num int) FileOption {
+	return func(f *FileOptions) {
 		f.maxBackupFile = num
 	}
 }
 
-// FileWriterMoveFileType 设置移动文件的类型
-func FileWriterMoveFileType(typ MoveFileType) OptionFileWriter {
-	return func(f *fileWriterOptions) {
+// FileMoveFileType 设置移动文件的类型
+func FileMoveFileType(typ MoveFileType) FileOption {
+	return func(f *FileOptions) {
 		f.moveFileType = typ
+	}
+}
+
+// FilePublisher set publisher
+func FilePublisher(pub Publisher) FileOption {
+	return func(c *FileOptions) {
+		c.publisher = pub
+	}
+}
+
+// LogrusOption 操作配置函数
+type LogrusOption func(*LogrusOptions)
+
+// LogrusLevel 设置等级
+func LogrusLevel(lvl Level) LogrusOption {
+	return func(f *LogrusOptions) {
+		f.level = lvl
 	}
 }

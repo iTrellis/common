@@ -18,195 +18,83 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 package logger
 
 import (
+	"encoding/json"
 	"fmt"
-	"time"
+	"reflect"
 
+	kitlog "github.com/go-kit/kit/log"
 	"github.com/iTrellis/common/event"
 )
 
-// Logger 日志对象
-type Logger interface {
-	Debug(msg string, fields ...interface{})
-	Debugf(msg string, fields ...interface{})
-	Info(msg string, fields ...interface{})
-	Infof(msg string, fields ...interface{})
-	Warn(msg string, fields ...interface{})
-	Warnf(msg string, fields ...interface{})
-	Error(msg string, fields ...interface{})
-	Errorf(msg string, fields ...interface{})
-	Critical(msg string, fields ...interface{})
-	Criticalf(msg string, fields ...interface{})
-	With(params ...interface{}) Logger
-	WithPrefix(prefixes ...interface{}) Logger
+// Publisher publish some informations
+type Publisher interface {
+	LogFarm
 
-	SetLevel(lvl Level)
+	With(params ...interface{}) Publisher
+	WithPrefix(kvs ...interface{}) Publisher
 
 	event.SubscriberGroup
 }
 
-// NewLogger 获取日志实例
-func NewLogger() Logger {
-	return &context{
-		eventGroup: event.NewSubscriberGroup(),
-	}
+// Logger 日志对象
+type Logger interface {
+	LogFarm
+
+	event.Subscriber
+
+	SetLevel(lvl Level)
 }
 
-// StdNewLogger 获取日志实例
-func StdNewLogger() Logger {
-	l := NewLogger()
-	w, err := NewStdWriter(l)
-	if err != nil {
-		panic(err)
-	}
-	_, err = l.Subscriber(w)
-	if err != nil {
-		panic(err)
-	}
+// LogFarm log functions
+type LogFarm interface {
+	Debug(kvs ...interface{})
+	Debugf(msg string, kvs ...interface{})
+	Info(kvs ...interface{})
+	Infof(msg string, kvs ...interface{})
+	Warn(kvs ...interface{})
+	Warnf(msg string, kvs ...interface{})
+	Error(kvs ...interface{})
+	Errorf(msg string, kvs ...interface{})
+	Critical(kvs ...interface{})
+	Criticalf(msg string, kvs ...interface{})
+	Panic(kvs ...interface{})
+	Panicf(msg string, kvs ...interface{})
 
-	return l
+	Log(keyvals ...interface{}) error
 }
 
-// Caller fileds function
-type Caller func() interface{}
+func genLogs(evt *Event) []interface{} {
 
-func containsCaller(fileds []interface{}) bool {
-	for i := 0; i < len(fileds); i++ {
-		switch fileds[i].(type) {
-		case Caller, func() interface{}:
-			return true
+	lenFields := len(evt.Fields)
+	n := 4 + (lenFields+1)/2*2
+
+	logs := make([]interface{}, 0, n)
+
+	logs = append(logs, "ts", evt.Time.Format("2006/01/02T15:04:05.000"), "level", ToLevelName(evt.Level))
+
+	for i := 0; i < lenFields; i += 2 {
+		k := evt.Fields[i]
+		var v interface{} = kitlog.ErrMissingValue
+		if i+1 < lenFields {
+			v = evt.Fields[i+1]
 		}
+		logs = append(logs, toString(k), toString(v))
 	}
-	return false
+
+	return logs
 }
 
-func bindCallers(fileds []interface{}) {
-	for i := 0; i < len(fileds); i++ {
-		switch fn := fileds[i].(type) {
-		case Caller:
-			fileds[i] = fn()
-		case func() interface{}:
-			fileds[i] = fn()
+func toString(v interface{}) string {
+	switch reflect.TypeOf(v).Kind() {
+	case reflect.Ptr, reflect.Struct, reflect.Map:
+		bs, err := json.Marshal(v)
+		if err != nil {
+			panic(err)
 		}
+		return string(bs)
+	case reflect.String:
+		return v.(string)
+	default:
+		return fmt.Sprint(v)
 	}
-}
-
-type context struct {
-	prefixes   []interface{}
-	hasCaller  bool
-	eventGroup event.SubscriberGroup
-}
-
-// Debug 调试
-func (p *context) Debug(msg string, fields ...interface{}) {
-	p.publishLog(DebugLevel, msg, fields...)
-}
-
-// Debugf 调试
-func (p *context) Debugf(msg string, fields ...interface{}) {
-	p.Debug(fmt.Sprintf(msg, fields...))
-}
-
-// Info 信息
-func (p *context) Info(msg string, fields ...interface{}) {
-	p.publishLog(InfoLevel, msg, fields...)
-}
-
-// Infof 信息
-func (p *context) Infof(msg string, fields ...interface{}) {
-	p.Info(fmt.Sprintf(msg, fields...))
-}
-
-// Warn 警告
-func (p *context) Warn(msg string, fields ...interface{}) {
-	p.publishLog(WarnLevel, msg, fields...)
-}
-
-// Warnf 警告
-func (p *context) Warnf(msg string, fields ...interface{}) {
-	p.Warn(fmt.Sprintf(msg, fields...))
-}
-
-// Error 错误
-func (p *context) Error(msg string, fields ...interface{}) {
-	p.publishLog(ErrorLevel, msg, fields...)
-}
-
-// Errorf 错误
-func (p *context) Errorf(msg string, fields ...interface{}) {
-	p.Error(fmt.Sprintf(msg, fields...))
-}
-
-// Critical 严重的
-func (p *context) Critical(msg string, fields ...interface{}) {
-	p.publishLog(CriticalLevel, msg, fields...)
-}
-
-// Criticalf 严重的
-func (p *context) Criticalf(msg string, fields ...interface{}) {
-	p.Critical(fmt.Sprintf(msg, fields...))
-}
-
-// SetLevel set logger level
-func (p *context) SetLevel(lvl Level) {
-	p.Publish(lvl)
-}
-
-// With 异常
-func (p *context) With(params ...interface{}) Logger {
-	if len(params) == 0 {
-		return p
-	}
-	newPrefixes := append(p.prefixes, params...)
-
-	return &context{
-		prefixes:   newPrefixes[:len(newPrefixes):len(newPrefixes)],
-		hasCaller:  p.hasCaller || containsCaller(newPrefixes),
-		eventGroup: p.eventGroup,
-	}
-}
-
-// WithPrefix 加载前缀
-func (p *context) WithPrefix(prefixes ...interface{}) Logger {
-	if len(prefixes) == 0 {
-		return p
-	}
-	newPrefixes := append(prefixes, p.prefixes...)
-	return &context{
-		prefixes:   newPrefixes,
-		hasCaller:  p.hasCaller || containsCaller(newPrefixes),
-		eventGroup: p.eventGroup,
-	}
-}
-
-func (p *context) publishLog(lvl Level, msg string, fields ...interface{}) {
-	if len(msg) == 0 {
-		panic("message should not be empty")
-	}
-	prifixes := p.prefixes
-	if p.hasCaller {
-		if len(prifixes) != 0 {
-			bindCallers(prifixes)
-		}
-	}
-	p.Publish(&Event{
-		Time:     time.Now(),
-		Level:    lvl,
-		Prefixes: prifixes,
-		Fields:   append([]interface{}{msg}, fields...)})
-}
-
-func (p *context) Subscriber(s interface{}) (event.Subscriber, error) {
-	return p.eventGroup.Subscriber(s)
-}
-
-func (p *context) RemoveSubscriber(ids ...string) error {
-	return p.eventGroup.RemoveSubscriber(ids...)
-}
-
-func (p *context) Publish(values ...interface{}) {
-	p.eventGroup.Publish(values...)
-}
-
-func (p *context) ClearSubscribers() {
-	p.eventGroup.ClearSubscribers()
 }

@@ -15,33 +15,21 @@ You should have received a copy of the GNU General Public License
 along with this program. If not, see <http://www.gnu.org/licenses/>.
 */
 
-package main
+package logger
 
-import (
-	"time"
+import "os"
 
-	"github.com/iTrellis/common/logger"
-)
+// FileSort 文件排序
+type FileSort []os.FileInfo
 
-type msg struct {
-	Name string
-	Age  int
+func (fs FileSort) Len() int {
+	return len(fs)
 }
 
-func main() {
-	log := logger.StdNewLogger()
+func (fs FileSort) Less(i, j int) bool {
+	return fs[i].Name() > fs[j].Name()
+}
 
-	defer log.ClearSubscribers()
-
-	log = log.WithPrefix(logger.Stack)
-
-	for index := 0; index < 10; index++ {
-		logger.Debug(log, "example_debug", index, &msg{Name: "haha", Age: 123})
-
-		log.Info("example\tinfo", index, &msg{Name: "i am  info", Age: 123})
-		log.Warn("example_warn", index, &msg{Name: "i am warn", Age: 123})
-		log.Error("example error", index, &msg{Name: "i am error", Age: 123})
-		log.Critical("example_critical", index, &msg{Name: "i am critial", Age: 123})
-		time.Sleep(time.Second)
-	}
+func (fs FileSort) Swap(i, j int) {
+	fs[i], fs[j] = fs[j], fs[i]
 }

@@ -43,10 +43,9 @@ func ClearSubscribers(g event.SubscriberGroup) {
 
 // Event log message
 type Event struct {
-	Time     time.Time
-	Level    Level
-	Prefixes []interface{}
-	Fields   []interface{}
+	Time   time.Time
+	Level  Level
+	Fields []interface{}
 }
 
 // Stack stores a stacktrace under the key "stacktrace".

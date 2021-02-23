@@ -22,29 +22,35 @@ type Level int32
 
 // define levels
 const (
-	MinLevel = Level(iota)
+	TraceLevel = Level(iota)
 	DebugLevel
 	InfoLevel
 	WarnLevel
 	ErrorLevel
 	CriticalLevel
+	PanicLevel
 
-	LevelNameUnknown  = "Unknown"
+	LevelNameUnknown  = "NULL"
+	LevelNameTrace    = "TRAC"
 	LevelNameDebug    = "DEBU"
 	LevelNameInfo     = "INFO"
 	LevelNameWarn     = "WARN"
 	LevelNameError    = "ERRO"
 	LevelNameCritical = "CRIT"
+	LevelNamePanic    = "PANC"
 
 	levelColorDebug    = "\033[32m%s\033[0m" // grenn
 	levelColorInfo     = "\033[37m%s\033[0m" // white
-	levelColorWarn     = "\033[33m%s\033[0m" // yellow
-	levelColorError    = "\033[31m%s\033[0m" // red
-	levelColorCritical = "\033[35m%s\033[0m" // perple
+	levelColorWarn     = "\033[34m%s\033[0m" // blue
+	levelColorError    = "\033[33m%s\033[0m" // yellow
+	levelColorCritical = "\033[31m%s\033[0m" // red
+	levelColorPanic    = "\033[35m%s\033[0m" // perple
+
 )
 
 // LevelColors printer's color
 var LevelColors = map[Level]string{
+	TraceLevel:    levelColorInfo,
 	DebugLevel:    levelColorDebug,
 	InfoLevel:     levelColorInfo,
 	WarnLevel:     levelColorWarn,
@@ -55,6 +61,8 @@ var LevelColors = map[Level]string{
 // ToLevelName 等级转换为名称
 func ToLevelName(lvl Level) string {
 	switch lvl {
+	case TraceLevel:
+		return LevelNameTrace
 	case DebugLevel:
 		return LevelNameDebug
 	case InfoLevel:
@@ -65,6 +73,8 @@ func ToLevelName(lvl Level) string {
 		return LevelNameError
 	case CriticalLevel:
 		return LevelNameCritical
+	case PanicLevel:
+		return LevelNamePanic
 	default:
 		return LevelNameUnknown
 	}

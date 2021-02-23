@@ -24,28 +24,48 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"sort"
 	"strings"
 	"time"
 
-	"github.com/iTrellis/common/event"
+	"github.com/google/uuid"
 	"github.com/iTrellis/common/files"
 )
 
-type fileWriter struct {
-	logger Logger
+const (
+	// 默认的通道大小
+	defaultChanBuffer int = 100000
+)
 
-	options fileWriterOptions
+type fileLogger struct {
+	id string
 
-	logChan chan *Event
+	options FileOptions
 
-	subscriber event.Subscriber
-
+	logChan  chan *Event
 	stopChan chan bool
 
 	writeFileTime time.Time
 	lastMoveFlag  int
-	ticker        *time.Ticker
+
+	ticker *time.Ticker
+}
+
+// FileOptions file options
+type FileOptions struct {
+	level Level
+
+	separator  string
+	fileName   string
+	maxLength  int64
+	chanBuffer int
+
+	moveFileType MoveFileType
+	// 最大保留日志个数，如果为0则全部保留
+	maxBackupFile int
+
+	publisher Publisher
 }
 
 // MoveFileType move file type
@@ -59,10 +79,10 @@ const (
 	MoveFileTypeDaily                         // 按天移动
 )
 
-// FileWriter 标准窗体的输出对象
-func FileWriter(log Logger, opts ...OptionFileWriter) (Writer, error) {
-	fw := &fileWriter{
-		logger:   log,
+// NewFileLogger 标准窗体的输出对象
+func NewFileLogger(opts ...FileOption) (Logger, error) {
+	fw := &fileLogger{
+		id:       uuid.NewString(),
 		ticker:   time.NewTicker(time.Second * 30),
 		stopChan: make(chan bool, 1),
 	}
@@ -72,22 +92,19 @@ func FileWriter(log Logger, opts ...OptionFileWriter) (Writer, error) {
 		return nil, err
 	}
 
-	fw.subscriber, err = event.NewDefSubscriber(fw.Publish)
-	if err != nil {
-		fw.Stop()
-		return nil, err
+	if fw.options.publisher != nil {
+		_, err := fw.options.publisher.Subscriber(fw)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	_, err = log.Subscriber(fw.subscriber)
-	if err != nil {
-		return nil, err
-	}
 	return fw, err
 }
 
 var fileExecutor = files.New()
 
-func (p *fileWriter) init(opts ...OptionFileWriter) error {
+func (p *fileLogger) init(opts ...FileOption) error {
 
 	for _, o := range opts {
 		o(&p.options)
@@ -133,26 +150,24 @@ func (p *fileWriter) init(opts ...OptionFileWriter) error {
 	return nil
 }
 
-func (p *fileWriter) Publish(evts ...interface{}) {
-	for _, evt := range evts {
-		switch eType := evt.(type) {
-		case Event:
-			p.logChan <- &eType
-		case *Event:
-			p.logChan <- eType
-		case Level:
-			p.options.level = eType
-		default:
-			panic(fmt.Errorf("unsupported event type: %s", reflect.TypeOf(evt).Name()))
-		}
-	}
+func (p *fileLogger) SetLevel(lvl Level) {
+	p.options.level = lvl
 }
 
-func (p *fileWriter) Write(bs []byte) (int, error) {
+func (p *fileLogger) write(bs []byte) (int, error) {
 	return fileExecutor.WriteAppendBytes(p.options.fileName, bs)
 }
 
-func (p *fileWriter) looperLog() {
+func (p *fileLogger) Log(kvs ...interface{}) error {
+	var ss []string
+	for _, v := range kvs {
+		ss = append(ss, toString(v))
+	}
+	_, err := p.write([]byte(strings.Join(ss, p.options.separator)))
+	return err
+}
+
+func (p *fileLogger) looperLog() {
 	for {
 		select {
 		case log := <-p.logChan:
@@ -180,7 +195,7 @@ func (p *fileWriter) looperLog() {
 	}
 }
 
-func (p *fileWriter) judgeMoveFile() error {
+func (p *fileLogger) judgeMoveFile() error {
 
 	timeNow, flag := time.Now(), 0
 	switch p.options.moveFileType {
@@ -202,7 +217,7 @@ func (p *fileWriter) judgeMoveFile() error {
 	return p.moveFile()
 }
 
-func (p *fileWriter) moveFile() error {
+func (p *fileLogger) moveFile() error {
 	var timeStr string
 	switch p.options.moveFileType {
 	case MoveFileTypePerMinite:
@@ -227,7 +242,7 @@ func (p *fileWriter) moveFile() error {
 	return err
 }
 
-func (p *fileWriter) removeOldFiles() error {
+func (p *fileLogger) removeOldFiles() error {
 	if 0 == p.options.maxBackupFile {
 		return nil
 	}
@@ -266,13 +281,29 @@ func (p *fileWriter) removeOldFiles() error {
 	return nil
 }
 
-func (p *fileWriter) innerLog(evt *Event) (n int, err error) {
+func (p *fileLogger) genLogs(evt *Event) string {
+	var logs []string
+
+	kvs := genLogs(evt)
+	for i := 0; i < len(kvs); i += 2 {
+		logs = append(logs, fmt.Sprintf("%s=%s", kvs[i], kvs[i+1]))
+	}
+
+	gEnd := "\n"
+	switch runtime.GOOS {
+	case "windows":
+		gEnd += "\r\n"
+	}
+
+	return fmt.Sprintf("%s%s", strings.Join(logs, p.options.separator), gEnd)
+}
+func (p *fileLogger) innerLog(evt *Event) (n int, err error) {
 
 	if err = p.judgeMoveFile(); err != nil {
 		return
 	}
 
-	n, err = p.Write([]byte(generateLogs(evt, p.options.separator)))
+	n, err = p.write([]byte(p.genLogs(evt)))
 
 	if p.options.maxLength == 0 {
 		return
@@ -292,35 +323,101 @@ func (p *fileWriter) innerLog(evt *Event) (n int, err error) {
 	return
 }
 
-func (p *fileWriter) Level() Level {
+func (p *fileLogger) Level() Level {
 	return p.options.level
 }
 
-func (p *fileWriter) GetID() string {
-	return p.subscriber.GetID()
+func (p *fileLogger) GetID() string {
+	return p.id
 }
 
-func (p *fileWriter) Stop() {
-	if err := p.logger.RemoveSubscriber(p.subscriber.GetID()); err != nil {
-		p.logger.Criticalf("failed remove Chan Writer: %s", err.Error())
-	}
-
+func (p *fileLogger) Stop() {
 	p.stopChan <- true
+
+	p.options.publisher = nil
 
 	close(p.logChan)
 }
 
-// FileSort 文件排序
-type FileSort []os.FileInfo
-
-func (fs FileSort) Len() int {
-	return len(fs)
+func (p *fileLogger) Publish(evts ...interface{}) {
+	for _, evt := range evts {
+		switch eType := evt.(type) {
+		case Event:
+			p.logChan <- &eType
+		case *Event:
+			p.logChan <- eType
+		case Level:
+			p.options.level = eType
+		default:
+			panic(fmt.Errorf("unsupported event type: %s", reflect.TypeOf(evt).Name()))
+		}
+	}
 }
 
-func (fs FileSort) Less(i, j int) bool {
-	return fs[i].Name() > fs[j].Name()
+func (p *fileLogger) pubLog(level Level, kvs ...interface{}) {
+	p.Publish(&Event{
+		Time:   time.Now(),
+		Level:  level,
+		Fields: kvs,
+	})
 }
 
-func (fs FileSort) Swap(i, j int) {
-	fs[i], fs[j] = fs[j], fs[i]
+// Debug 调试
+func (p *fileLogger) Debug(kvs ...interface{}) {
+	p.pubLog(DebugLevel, kvs...)
+}
+
+// Debugf 调试
+func (p *fileLogger) Debugf(msg string, kvs ...interface{}) {
+	p.Debug("msg", fmt.Sprintf(msg, kvs...))
+}
+
+// Info 信息
+func (p *fileLogger) Info(kvs ...interface{}) {
+	p.pubLog(InfoLevel, kvs...)
+}
+
+// Infof 信息
+func (p *fileLogger) Infof(msg string, kvs ...interface{}) {
+	p.Info("msg", fmt.Sprintf(msg, kvs...))
+}
+
+// Warn 警告
+func (p *fileLogger) Warn(kvs ...interface{}) {
+	p.pubLog(WarnLevel, kvs...)
+}
+
+// Warnf 警告
+func (p *fileLogger) Warnf(msg string, kvs ...interface{}) {
+	p.Warn("msg", fmt.Sprintf(msg, kvs...))
+}
+
+// Error 错误
+func (p *fileLogger) Error(kvs ...interface{}) {
+	p.pubLog(ErrorLevel, kvs...)
+}
+
+// Errorf 错误
+func (p *fileLogger) Errorf(msg string, kvs ...interface{}) {
+	p.Error("msg", fmt.Sprintf(msg, kvs...))
+}
+
+// Critical 严重的
+func (p *fileLogger) Critical(kvs ...interface{}) {
+	p.pubLog(CriticalLevel, kvs...)
+}
+
+// Criticalf 严重的
+func (p *fileLogger) Criticalf(msg string, kvs ...interface{}) {
+	p.Critical("msg", fmt.Sprintf(msg, kvs...))
+}
+
+// Panic panic
+func (p *fileLogger) Panic(kvs ...interface{}) {
+	p.pubLog(PanicLevel, kvs...)
+}
+
+// Panicf panic
+func (p *fileLogger) Panicf(msg string, kvs ...interface{}) {
+	p.Panic("msg", fmt.Sprintf(msg, kvs...))
 }

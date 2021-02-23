@@ -17,67 +17,62 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 package logger
 
-const (
-	// 默认的通道大小
-	defaultChanBuffer int = 100000
-)
-
 // Debug 调试
-func Debug(l Logger, msg string, fields ...interface{}) {
-	l.Debug(msg, fields...)
+func Debug(l LogFarm, fields ...interface{}) {
+	l.Debug(fields...)
 }
 
 // Debugf 调试
-func Debugf(l Logger, msg string, fields ...interface{}) {
+func Debugf(l LogFarm, msg string, fields ...interface{}) {
 	l.Debugf(msg, fields...)
 }
 
 // Info 信息
-func Info(l Logger, msg string, fields ...interface{}) {
-	l.Info(msg, fields...)
+func Info(l LogFarm, fields ...interface{}) {
+	l.Info(fields...)
 }
 
 // Infof 信息
-func Infof(l Logger, msg string, fields ...interface{}) {
+func Infof(l LogFarm, msg string, fields ...interface{}) {
 	l.Infof(msg, fields...)
 }
 
 // Error 错误
-func Error(l Logger, msg string, fields ...interface{}) {
-	l.Error(msg, fields...)
+func Error(l LogFarm, fields ...interface{}) {
+	l.Error(fields...)
 }
 
 // Errorf 错误
-func Errorf(l Logger, msg string, fields ...interface{}) {
+func Errorf(l LogFarm, msg string, fields ...interface{}) {
 	l.Errorf(msg, fields...)
 }
 
 // Warn 警告
-func Warn(l Logger, msg string, fields ...interface{}) {
-	l.Warn(msg, fields...)
+func Warn(l LogFarm, fields ...interface{}) {
+	l.Warn(fields...)
 }
 
 // Warnf 警告
-func Warnf(l Logger, msg string, fields ...interface{}) {
+func Warnf(l LogFarm, msg string, fields ...interface{}) {
 	l.Warnf(msg, fields...)
 }
 
 // Critical 异常
-func Critical(l Logger, msg string, fields ...interface{}) {
-	l.Critical(msg, fields...)
+func Critical(l LogFarm, fields ...interface{}) {
+	l.Critical(fields...)
 }
 
 // Criticalf 异常
-func Criticalf(l Logger, msg string, fields ...interface{}) {
+func Criticalf(l LogFarm, msg string, fields ...interface{}) {
 	l.Criticalf(msg, fields...)
 }
 
-// With 增加默认的消息
-func With(l Logger, params ...interface{}) Logger {
-	return l.With(params...)
+// Panic 异常
+func Panic(l LogFarm, fields ...interface{}) {
+	l.Panic(fields...)
 }
 
-// WithPrefix 在最前面增加消息
-func WithPrefix(l Logger, prefixes ...interface{}) Logger {
-	return l.WithPrefix(prefixes...)
+// Panicf 异常
+func Panicf(l LogFarm, msg string, fields ...interface{}) {
+	l.Panicf(msg, fields...)
 }

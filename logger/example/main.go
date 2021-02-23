@@ -29,40 +29,41 @@ type msg struct {
 }
 
 func main() {
-	log := logger.NewLogger()
+	pub := logger.NewPublisher()
 
-	w, err := logger.NewStdWriter(log, logger.WriteLevel(logger.DebugLevel), logger.Color())
-	if err != nil {
-		panic(err)
-	}
-	fw, err := logger.FileWriter(log,
-		logger.FileWriterFileName("haha.log"),
-		logger.FileWriterLevel(logger.DebugLevel),
-		logger.FileWriterMoveFileType(1),
+	stdLog := logger.NewStdLogger(logger.STDPublisher(pub))
+
+	fw, err := logger.NewFileLogger(
+		logger.FileFileName("haha.log"),
+		logger.FileLevel(logger.DebugLevel),
+		logger.FileMoveFileType(1),
 	)
 	if err != nil {
 		panic(err)
 	}
 
-	log = log.WithPrefix(logger.Stack)
+	_, err = pub.Subscriber(fw)
+	if err != nil {
+		panic(err)
+	}
+
+	pub = pub.WithPrefix("stack", logger.Stack)
 
 	for index := 0; index < 10; index++ {
-		logger.Debug(log, "example_debug", index, &msg{Name: "haha", Age: 123})
+		logger.Debug(pub, "index", index, "msg", &msg{Name: "haha", Age: 123})
 
 		if index == 5 {
-			log.SetLevel(logger.InfoLevel)
+			stdLog.SetLevel(logger.InfoLevel)
 		}
 
-		log.Info("example\tinfo", index, &msg{Name: "i am  info", Age: 123})
-		log.Warn("example_warn", index, &msg{Name: "i am warn", Age: 123})
-		log.Error("example error", index, &msg{Name: "i am error", Age: 123})
-		log.Critical("example_critical", index, &msg{Name: "i am critial", Age: 123})
+		pub.Info("example_info", index, "msg", &msg{Name: "i am  info", Age: 123})
+		pub.Warn("example_warn", index, "msg", &msg{Name: "i am warn", Age: 123})
+		pub.Error("example error", index, "msg", &msg{Name: "i am error", Age: 123})
+		pub.Critical("example_critical", index, "msg", &msg{Name: "i am critial", Age: 123})
 		time.Sleep(time.Second)
 	}
 
-	w.Stop()
-	fw.Stop()
-	log.ClearSubscribers()
-	log.Error("example error", &msg{Name: "non print", Age: 123})
+	pub.ClearSubscribers()
+	pub.Error("msg", &msg{Name: "non print", Age: 123})
 	time.Sleep(time.Second)
 }

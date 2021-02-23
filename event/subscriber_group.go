@@ -84,7 +84,7 @@ func (p *defSubscriberGroup) Subscriber(sub interface{}) (Subscriber, error) {
 
 // GenSubscriberID 生成消费者ID
 func GenSubscriberID() string {
-	return uuid.New().URN()
+	return uuid.NewString()
 }
 
 // RemoveSubscriber xxx
