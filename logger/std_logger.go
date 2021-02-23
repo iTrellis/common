@@ -28,6 +28,7 @@ import (
 	"github.com/google/uuid"
 )
 
+// STDOptions std options
 type STDOptions struct {
 	level  Level
 	writer io.Writer

@@ -98,3 +98,63 @@ func toString(v interface{}) string {
 		return fmt.Sprint(v)
 	}
 }
+
+// Debug 调试
+func Debug(l LogFarm, fields ...interface{}) {
+	l.Debug(fields...)
+}
+
+// Debugf 调试
+func Debugf(l LogFarm, msg string, fields ...interface{}) {
+	l.Debugf(msg, fields...)
+}
+
+// Info 信息
+func Info(l LogFarm, fields ...interface{}) {
+	l.Info(fields...)
+}
+
+// Infof 信息
+func Infof(l LogFarm, msg string, fields ...interface{}) {
+	l.Infof(msg, fields...)
+}
+
+// Error 错误
+func Error(l LogFarm, fields ...interface{}) {
+	l.Error(fields...)
+}
+
+// Errorf 错误
+func Errorf(l LogFarm, msg string, fields ...interface{}) {
+	l.Errorf(msg, fields...)
+}
+
+// Warn 警告
+func Warn(l LogFarm, fields ...interface{}) {
+	l.Warn(fields...)
+}
+
+// Warnf 警告
+func Warnf(l LogFarm, msg string, fields ...interface{}) {
+	l.Warnf(msg, fields...)
+}
+
+// Critical 异常
+func Critical(l LogFarm, fields ...interface{}) {
+	l.Critical(fields...)
+}
+
+// Criticalf 异常
+func Criticalf(l LogFarm, msg string, fields ...interface{}) {
+	l.Criticalf(msg, fields...)
+}
+
+// Panic 异常
+func Panic(l LogFarm, fields ...interface{}) {
+	l.Panic(fields...)
+}
+
+// Panicf 异常
+func Panicf(l LogFarm, msg string, fields ...interface{}) {
+	l.Panicf(msg, fields...)
+}

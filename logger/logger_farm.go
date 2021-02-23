@@ -17,62 +17,101 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 package logger
 
+import "github.com/google/uuid"
+
+// WithPrefix with prefix
+func WithPrefix(logger Logger, prefixes ...interface{}) Logger {
+	return &context{
+		id: uuid.NewString(),
+
+		logger:   logger,
+		prefixes: prefixes,
+	}
+}
+
+type context struct {
+	id       string
+	logger   Logger
+	prefixes []interface{}
+}
+
 // Debug 调试
-func Debug(l LogFarm, fields ...interface{}) {
-	l.Debug(fields...)
+func (p *context) Debug(kvs ...interface{}) {
+	p.logger.Debug(kvs...)
 }
 
 // Debugf 调试
-func Debugf(l LogFarm, msg string, fields ...interface{}) {
-	l.Debugf(msg, fields...)
+func (p *context) Debugf(msg string, kvs ...interface{}) {
+	p.logger.Debugf(msg, kvs...)
 }
 
 // Info 信息
-func Info(l LogFarm, fields ...interface{}) {
-	l.Info(fields...)
+func (p *context) Info(kvs ...interface{}) {
+	p.logger.Info(kvs...)
 }
 
 // Infof 信息
-func Infof(l LogFarm, msg string, fields ...interface{}) {
-	l.Infof(msg, fields...)
-}
-
-// Error 错误
-func Error(l LogFarm, fields ...interface{}) {
-	l.Error(fields...)
-}
-
-// Errorf 错误
-func Errorf(l LogFarm, msg string, fields ...interface{}) {
-	l.Errorf(msg, fields...)
+func (p *context) Infof(msg string, kvs ...interface{}) {
+	p.logger.Infof(msg, kvs...)
 }
 
 // Warn 警告
-func Warn(l LogFarm, fields ...interface{}) {
-	l.Warn(fields...)
+func (p *context) Warn(kvs ...interface{}) {
+	p.logger.Warn(kvs...)
 }
 
 // Warnf 警告
-func Warnf(l LogFarm, msg string, fields ...interface{}) {
-	l.Warnf(msg, fields...)
+func (p *context) Warnf(msg string, kvs ...interface{}) {
+	p.logger.Warnf(msg, kvs...)
 }
 
-// Critical 异常
-func Critical(l LogFarm, fields ...interface{}) {
-	l.Critical(fields...)
+// Error 错误
+func (p *context) Error(kvs ...interface{}) {
+	p.logger.Error(kvs...)
 }
 
-// Criticalf 异常
-func Criticalf(l LogFarm, msg string, fields ...interface{}) {
-	l.Criticalf(msg, fields...)
+// Errorf 错误
+func (p *context) Errorf(msg string, kvs ...interface{}) {
+	p.logger.Errorf(msg, kvs...)
 }
 
-// Panic 异常
-func Panic(l LogFarm, fields ...interface{}) {
-	l.Panic(fields...)
+// Critical 严重的
+func (p *context) Critical(kvs ...interface{}) {
+	p.logger.Critical(kvs...)
 }
 
-// Panicf 异常
-func Panicf(l LogFarm, msg string, fields ...interface{}) {
-	l.Panicf(msg, fields...)
+// Criticalf 严重的
+func (p *context) Criticalf(msg string, kvs ...interface{}) {
+	p.logger.Criticalf(msg, kvs...)
+}
+
+// Panic panic
+func (p *context) Panic(kvs ...interface{}) {
+	p.logger.Panic(kvs...)
+}
+
+// Panicf panic
+func (p *context) Panicf(msg string, kvs ...interface{}) {
+	p.logger.Panicf(msg, kvs...)
+}
+
+func (p *context) GetID() string {
+	return p.logger.GetID()
+}
+
+func (p *context) Log(kvs ...interface{}) error {
+	logs := append(p.prefixes, kvs...)
+	return p.logger.Log(logs...)
+}
+
+func (p *context) Publish(vals ...interface{}) {
+	p.logger.Publish(vals...)
+}
+
+func (p *context) SetLevel(lvl Level) {
+	p.logger.SetLevel(lvl)
+}
+
+func (p *context) Stop() {
+	p.logger.Stop()
 }

@@ -33,6 +33,7 @@ type logrusLogger struct {
 	logger  logrus.FieldLogger
 }
 
+// LogrusOptions options
 type LogrusOptions struct {
 	level Level
 }
@@ -47,6 +48,7 @@ var mapToLogrusLevel = map[Level]logrus.Level{
 	PanicLevel:    logrus.PanicLevel,
 }
 
+// NewLogrusLogger logrus logger
 func NewLogrusLogger(l logrus.FieldLogger, opts ...LogrusOption) Logger {
 
 	log := &logrusLogger{

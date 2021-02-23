@@ -19,6 +19,7 @@ package logger
 
 import "io"
 
+// STDOption option
 type STDOption func(*STDOptions)
 
 // STDLevel set std logger level
