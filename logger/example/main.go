@@ -31,18 +31,20 @@ type msg struct {
 func main() {
 	pub := logger.NewPublisher()
 
-	stdLog := logger.NewStdLogger(logger.STDPublisher(pub))
+	stdLog := logger.NewStdLogger()
 
-	fw, err := logger.NewFileLogger(
-		logger.FileFileName("haha.log"),
-		logger.FileLevel(logger.DebugLevel),
-		logger.FileMoveFileType(1),
-	)
+	stdLog = logger.WithPrefix(stdLog, "test", "aha")
+	_, err := pub.Subscriber(stdLog)
 	if err != nil {
 		panic(err)
 	}
 
-	_, err = pub.Subscriber(fw)
+	_, err = logger.NewFileLogger(
+		logger.FileFileName("haha.log"),
+		logger.FileLevel(logger.DebugLevel),
+		logger.FileMoveFileType(1),
+		logger.FilePublisher(pub),
+	)
 	if err != nil {
 		panic(err)
 	}
