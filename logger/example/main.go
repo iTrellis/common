@@ -29,43 +29,51 @@ type msg struct {
 }
 
 func main() {
-	pub := logger.NewPublisher()
 
 	stdLog := logger.NewStdLogger()
 
-	stdLog = logger.WithPrefix(stdLog, "test", "aha")
+	logger.StackSkip = 10
+	stdLog = stdLog.WithPrefix("stack", logger.RuntimeCallers)
+
+	pub := logger.NewPublisher()
 	_, err := pub.Subscriber(stdLog)
 	if err != nil {
 		panic(err)
 	}
 
-	_, err = logger.NewFileLogger(
+	fLog, err := logger.NewFileLogger(
 		logger.FileFileName("haha.log"),
 		logger.FileLevel(logger.DebugLevel),
 		logger.FileMoveFileType(1),
-		logger.FilePublisher(pub),
 	)
 	if err != nil {
 		panic(err)
 	}
+	fLog = fLog.WithPrefix("writer", "test")
+	_, err = pub.Subscriber(fLog)
+	if err != nil {
+		panic(err)
+	}
 
-	pub = pub.WithPrefix("stack", logger.Stack)
+	pub = pub.WithPrefix("test", "aha")
+
+	stdLog.Info("key", "value")
 
 	for index := 0; index < 10; index++ {
-		logger.Debug(pub, "index", index, "msg", &msg{Name: "haha", Age: 123})
+		logger.Debug(stdLog, "index", index, "msg", &msg{Name: "haha", Age: 123})
 
 		if index == 5 {
 			stdLog.SetLevel(logger.InfoLevel)
 		}
 
-		pub.Info("example_info", index, "msg", &msg{Name: "i am  info", Age: 123})
-		pub.Warn("example_warn", index, "msg", &msg{Name: "i am warn", Age: 123})
-		pub.Error("example error", index, "msg", &msg{Name: "i am error", Age: 123})
-		pub.Critical("example_critical", index, "msg", &msg{Name: "i am critial", Age: 123})
-		time.Sleep(time.Second)
+		pub.Log(logger.InfoLevel, "example_info", index, "msg", &msg{Name: "i am  info", Age: 123})
+		pub.Log(logger.WarnLevel, "example_warn", index, "msg", &msg{Name: "i am warn", Age: 123})
+		pub.Log(logger.ErrorLevel, "example error", index, "msg", &msg{Name: "i am error", Age: 123})
+		pub.Log(logger.CriticalLevel, "example_critical", index, "msg", &msg{Name: "i am critial", Age: 123})
+		time.Sleep(time.Millisecond)
 	}
 
 	pub.ClearSubscribers()
-	pub.Error("msg", &msg{Name: "non print", Age: 123})
+	pub.Log(logger.ErrorLevel, "msg", &msg{Name: "non print", Age: 123})
 	time.Sleep(time.Second)
 }

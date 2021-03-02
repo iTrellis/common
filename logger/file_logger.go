@@ -50,8 +50,6 @@ type fileLogger struct {
 	lastMoveFlag  int
 
 	ticker *time.Ticker
-
-	prefixes []interface{}
 }
 
 // FileOptions file options
@@ -66,8 +64,6 @@ type FileOptions struct {
 	moveFileType MoveFileType
 	// 最大保留日志个数，如果为0则全部保留
 	maxBackupFile int
-
-	publisher Publisher
 }
 
 // MoveFileType move file type
@@ -92,13 +88,6 @@ func NewFileLogger(opts ...FileOption) (Logger, error) {
 	err := fw.init(opts...)
 	if err != nil {
 		return nil, err
-	}
-
-	if fw.options.publisher != nil {
-		_, err := fw.options.publisher.Subscriber(fw)
-		if err != nil {
-			return nil, err
-		}
 	}
 
 	return fw, err
@@ -174,7 +163,7 @@ func (p *fileLogger) looperLog() {
 		select {
 		case log := <-p.logChan:
 			if log.Level >= p.options.level {
-				_, _ = p.innerLog(log)
+				_, _ = p.logEvent(log)
 			}
 		case t := <-p.ticker.C:
 			flag := 0
@@ -191,6 +180,7 @@ func (p *fileLogger) looperLog() {
 			}
 			_ = p.judgeMoveFile()
 		case <-p.stopChan:
+			close(p.stopChan)
 			p.ticker.Stop()
 			return
 		}
@@ -299,7 +289,7 @@ func (p *fileLogger) genLogs(evt *Event) string {
 
 	return fmt.Sprintf("%s%s", strings.Join(logs, p.options.separator), gEnd)
 }
-func (p *fileLogger) innerLog(evt *Event) (n int, err error) {
+func (p *fileLogger) logEvent(evt *Event) (n int, err error) {
 
 	if err = p.judgeMoveFile(); err != nil {
 		return
@@ -334,9 +324,10 @@ func (p *fileLogger) GetID() string {
 }
 
 func (p *fileLogger) Stop() {
+	if p.stopChan == nil {
+		return
+	}
 	p.stopChan <- true
-
-	p.options.publisher = nil
 
 	close(p.logChan)
 }
@@ -423,5 +414,105 @@ func (p *fileLogger) Panic(kvs ...interface{}) {
 
 // Panicf panic
 func (p *fileLogger) Panicf(msg string, kvs ...interface{}) {
+	p.Panic("msg", fmt.Sprintf(msg, kvs...))
+}
+
+type fileWithPrefix struct {
+	id string
+
+	Logger
+
+	hasCaller bool
+	prefixes  []interface{}
+}
+
+func (p *fileLogger) WithPrefix(kvs ...interface{}) Logger {
+	return &fileWithPrefix{
+		id:        uuid.NewString(),
+		hasCaller: containsCaller(kvs),
+		prefixes:  kvs,
+		Logger:    p,
+	}
+}
+
+// Debug 调试
+func (p *fileWithPrefix) Debug(kvs ...interface{}) {
+	logs := append(p.prefixes, kvs...)
+	doCaller(p.hasCaller, logs)
+	p.Logger.Debug(logs...)
+}
+
+// Debugf 调试
+func (p *fileWithPrefix) Debugf(msg string, kvs ...interface{}) {
+	logs := append(p.prefixes, "msg", fmt.Sprintf(msg, kvs...))
+	doCaller(p.hasCaller, logs)
+	p.Logger.Debug(logs...)
+}
+
+// Info 信息
+func (p *fileWithPrefix) Info(kvs ...interface{}) {
+	logs := append(p.prefixes, kvs...)
+	doCaller(p.hasCaller, logs)
+	p.Logger.Info(logs...)
+}
+
+// Infof 信息
+func (p *fileWithPrefix) Infof(msg string, kvs ...interface{}) {
+	logs := append(p.prefixes, "msg", fmt.Sprintf(msg, kvs...))
+	doCaller(p.hasCaller, logs)
+	p.Logger.Info(logs...)
+}
+
+// Warn 警告
+func (p *fileWithPrefix) Warn(kvs ...interface{}) {
+	logs := append(p.prefixes, kvs...)
+	doCaller(p.hasCaller, logs)
+	p.Logger.Warn(logs...)
+}
+
+// Warnf 警告
+func (p *fileWithPrefix) Warnf(msg string, kvs ...interface{}) {
+	logs := append(p.prefixes, "msg", fmt.Sprintf(msg, kvs...))
+	doCaller(p.hasCaller, logs)
+	p.Logger.Warn(logs...)
+}
+
+// Error 错误
+func (p *fileWithPrefix) Error(kvs ...interface{}) {
+	logs := append(p.prefixes, kvs...)
+	doCaller(p.hasCaller, logs)
+	p.Logger.Error(logs...)
+}
+
+// Errorf 错误
+func (p *fileWithPrefix) Errorf(msg string, kvs ...interface{}) {
+	logs := append(p.prefixes, "msg", fmt.Sprintf(msg, kvs...))
+	doCaller(p.hasCaller, logs)
+	p.Logger.Error(logs...)
+}
+
+// Critical 严重的
+func (p *fileWithPrefix) Critical(kvs ...interface{}) {
+	logs := append(p.prefixes, kvs...)
+	doCaller(p.hasCaller, logs)
+	p.Logger.Critical(logs...)
+}
+
+// Criticalf 严重的
+func (p *fileWithPrefix) Criticalf(msg string, kvs ...interface{}) {
+	logs := append(p.prefixes, "msg", fmt.Sprintf(msg, kvs...))
+	doCaller(p.hasCaller, logs)
+	p.Logger.Error(logs...)
+}
+
+// Panic panic
+func (p *fileWithPrefix) Panic(kvs ...interface{}) {
+	logs := append(p.prefixes, kvs...)
+	doCaller(p.hasCaller, logs)
+	p.Logger.Panic(logs...)
+}
+
+// Panicf panic
+func (p *fileWithPrefix) Panicf(msg string, kvs ...interface{}) {
 	p.Panic("msg", fmt.Sprintf(msg, kvs...))
 }

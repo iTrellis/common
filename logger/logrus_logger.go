@@ -31,6 +31,9 @@ type logrusLogger struct {
 
 	options LogrusOptions
 	logger  logrus.FieldLogger
+
+	hasCaller bool
+	prefixes  []interface{}
 }
 
 // LogrusOptions options
@@ -67,6 +70,7 @@ func (p *logrusLogger) logEvent(evt *Event) {
 		return
 	}
 
+	evt.Fields = doCaller(p.hasCaller, p.prefixes, evt.Fields...)
 	vals := genLogs(evt)
 
 	fields := logrus.Fields{}
@@ -101,7 +105,8 @@ func (p *logrusLogger) Publish(evts ...interface{}) error {
 		case Event:
 			p.logEvent(&eType)
 		case *Event:
-			p.logEvent(eType)
+			newEvent := *eType
+			p.logEvent(&newEvent)
 		case Level:
 			p.options.level = eType
 		default:
@@ -196,4 +201,14 @@ func (p *logrusLogger) Panic(kvs ...interface{}) {
 // Panicf panic
 func (p *logrusLogger) Panicf(msg string, kvs ...interface{}) {
 	p.Panic("msg", fmt.Sprintf(msg, kvs...))
+}
+
+func (p *logrusLogger) WithPrefix(kvs ...interface{}) Logger {
+	return &logrusLogger{
+		id:        uuid.NewString(),
+		options:   p.options,
+		hasCaller: p.hasCaller || containsCaller(kvs),
+		prefixes:  append(kvs, p.prefixes...),
+		logger:    p.logger,
+	}
 }

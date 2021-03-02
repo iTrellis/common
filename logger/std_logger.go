@@ -32,15 +32,6 @@ import (
 type STDOptions struct {
 	level  Level
 	writer io.Writer
-
-	publisher Publisher
-}
-
-// STDPublisher set publisher
-func STDPublisher(pub Publisher) STDOption {
-	return func(c *STDOptions) {
-		c.publisher = pub
-	}
 }
 
 type stdLogger struct {
@@ -48,7 +39,8 @@ type stdLogger struct {
 	options STDOptions
 	logger  kitlog.Logger
 
-	prefixes []interface{}
+	hasCaller bool
+	prefixes  []interface{}
 }
 
 // NewStdLogger new std logger
@@ -68,9 +60,6 @@ func NewStdLogger(opts ...STDOption) Logger {
 
 	l.logger = kitlog.NewLogfmtLogger(l.options.writer)
 
-	if l.options.publisher != nil {
-		l.options.publisher.Subscriber(l)
-	}
 	return l
 }
 
@@ -84,7 +73,8 @@ func (p *stdLogger) Publish(evts ...interface{}) error {
 		case Event:
 			p.logEvent(&t)
 		case *Event:
-			p.logEvent(t)
+			newEvent := *t
+			p.logEvent(&newEvent)
 		case Level:
 			p.options.level = t
 		default:
@@ -98,9 +88,7 @@ func (p *stdLogger) SetLevel(lvl Level) {
 	p.options.level = lvl
 }
 
-func (p *stdLogger) Stop() {
-	p.options.publisher = nil
-}
+func (p *stdLogger) Stop() {}
 
 func (p *stdLogger) Log(kvs ...interface{}) error {
 	return p.logger.Log(kvs...)
@@ -114,17 +102,17 @@ func (p *stdLogger) pubLog(level Level, kvs ...interface{}) {
 	})
 }
 
-func (p *stdLogger) logEvent(log *Event) error {
-	if log.Level < p.options.level {
+func (p *stdLogger) logEvent(evt *Event) error {
+	if evt.Level < p.options.level {
 		return nil
 	}
-	return p.Log(genLogs(log)...)
+	evt.Fields = doCaller(p.hasCaller, p.prefixes, evt.Fields...)
+	return p.Log(genLogs(evt)...)
 }
 
 // Debug 调试
 func (p *stdLogger) Debug(kvs ...interface{}) {
-	logs := append(p.prefixes, kvs...)
-	p.pubLog(DebugLevel, logs...)
+	p.pubLog(DebugLevel, kvs...)
 }
 
 // Debugf 调试
@@ -134,8 +122,7 @@ func (p *stdLogger) Debugf(msg string, kvs ...interface{}) {
 
 // Info 信息
 func (p *stdLogger) Info(kvs ...interface{}) {
-	logs := append(p.prefixes, kvs...)
-	p.pubLog(InfoLevel, logs...)
+	p.pubLog(InfoLevel, kvs...)
 }
 
 // Infof 信息
@@ -145,8 +132,7 @@ func (p *stdLogger) Infof(msg string, kvs ...interface{}) {
 
 // Warn 警告
 func (p *stdLogger) Warn(kvs ...interface{}) {
-	logs := append(p.prefixes, kvs...)
-	p.pubLog(WarnLevel, logs...)
+	p.pubLog(WarnLevel, kvs...)
 }
 
 // Warnf 警告
@@ -156,8 +142,7 @@ func (p *stdLogger) Warnf(msg string, kvs ...interface{}) {
 
 // Error 错误
 func (p *stdLogger) Error(kvs ...interface{}) {
-	logs := append(p.prefixes, kvs...)
-	p.pubLog(ErrorLevel, logs...)
+	p.pubLog(ErrorLevel, kvs...)
 }
 
 // Errorf 错误
@@ -167,8 +152,7 @@ func (p *stdLogger) Errorf(msg string, kvs ...interface{}) {
 
 // Critical 严重的
 func (p *stdLogger) Critical(kvs ...interface{}) {
-	logs := append(p.prefixes, kvs...)
-	p.pubLog(CriticalLevel, logs...)
+	p.pubLog(CriticalLevel, kvs...)
 }
 
 // Criticalf 严重的
@@ -178,8 +162,7 @@ func (p *stdLogger) Criticalf(msg string, kvs ...interface{}) {
 
 // Panic panic
 func (p *stdLogger) Panic(kvs ...interface{}) {
-	logs := append(p.prefixes, kvs...)
-	p.pubLog(PanicLevel, logs...)
+	p.pubLog(PanicLevel, kvs...)
 }
 
 // Panicf panic
@@ -189,9 +172,10 @@ func (p *stdLogger) Panicf(msg string, kvs ...interface{}) {
 
 func (p *stdLogger) WithPrefix(kvs ...interface{}) Logger {
 	return &stdLogger{
-		id:       uuid.NewString(),
-		options:  p.options,
-		prefixes: append(kvs, p.prefixes...),
-		logger:   p.logger,
+		id:        uuid.NewString(),
+		options:   p.options,
+		hasCaller: p.hasCaller || containsCaller(kvs),
+		prefixes:  append(kvs, p.prefixes...),
+		logger:    p.logger,
 	}
 }
