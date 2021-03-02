@@ -71,9 +71,11 @@ func (p *stdLogger) Publish(evts ...interface{}) error {
 	for _, evt := range evts {
 		switch t := evt.(type) {
 		case Event:
+			t.Fields = doCaller(p.hasCaller, p.prefixes, t.Fields...)
 			p.logEvent(&t)
 		case *Event:
 			newEvent := *t
+			newEvent.Fields = doCaller(p.hasCaller, p.prefixes, newEvent.Fields...)
 			p.logEvent(&newEvent)
 		case Level:
 			p.options.level = t
@@ -106,7 +108,6 @@ func (p *stdLogger) logEvent(evt *Event) error {
 	if evt.Level < p.options.level {
 		return nil
 	}
-	evt.Fields = doCaller(p.hasCaller, p.prefixes, evt.Fields...)
 	return p.Log(genLogs(evt)...)
 }
 

@@ -101,14 +101,16 @@ func (p *logrusLogger) logEvent(evt *Event) {
 
 func (p *logrusLogger) Publish(evts ...interface{}) error {
 	for _, evt := range evts {
-		switch eType := evt.(type) {
+		switch t := evt.(type) {
 		case Event:
-			p.logEvent(&eType)
+			t.Fields = doCaller(p.hasCaller, p.prefixes, t.Fields...)
+			p.logEvent(&t)
 		case *Event:
-			newEvent := *eType
+			newEvent := *t
+			newEvent.Fields = doCaller(p.hasCaller, p.prefixes, newEvent.Fields...)
 			p.logEvent(&newEvent)
 		case Level:
-			p.options.level = eType
+			p.options.level = t
 		default:
 			return fmt.Errorf("unsupported event type: %s", reflect.TypeOf(evt).Name())
 		}

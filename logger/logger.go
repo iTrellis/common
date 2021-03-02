@@ -147,57 +147,59 @@ func Panicf(l Logger, msg string, fields ...interface{}) {
 	l.Panicf(msg, fields...)
 }
 
-// StackSkip set default runtime caller skip
-var StackSkip = 5
-
 // RuntimeCaller stores a stacktrace under the key "stacktrace".
-func RuntimeCaller() interface{} {
-	_, file, line, ok := runtime.Caller(StackSkip)
-	if !ok {
-		file = "<???>"
-		line = 1
-	} else {
-		slash := strings.LastIndex(file, "/")
-		file = file[slash+1:]
+func RuntimeCaller(skip int) func() interface{} {
+	return func() interface{} {
+		_, file, line, ok := runtime.Caller(skip)
+		if !ok {
+			file = "<???>"
+			line = 1
+		} else {
+			slash := strings.LastIndex(file, "/")
+			file = file[slash+1:]
+		}
+		return fmt.Sprintf("%s:%d", file, line)
 	}
-	return fmt.Sprintf("%s:%d", file, line)
 }
 
-func RuntimeCallers() interface{} {
-	var name, file string
-	var line int
-	var pc [16]uintptr
+func RuntimeCallers(skip int) func() interface{} {
 
-	n := runtime.Callers(StackSkip, pc[:])
-	for _, pc := range pc[:n] {
-		fn := runtime.FuncForPC(pc)
-		if fn == nil {
-			continue
+	return func() interface{} {
+		var name, file string
+		var line int
+		var pc [16]uintptr
+
+		n := runtime.Callers(skip, pc[:])
+		for _, pc := range pc[:n] {
+			fn := runtime.FuncForPC(pc)
+			if fn == nil {
+				continue
+			}
+			file, line = fn.FileLine(pc)
+
+			slash := strings.LastIndex(file, "/")
+			file = file[slash+1:]
+
+			name = fn.Name()
+
+			if !strings.HasPrefix(name, "runtime.") {
+				slash := strings.LastIndex(name, "/")
+				name = name[slash+1:]
+				break
+			}
 		}
-		file, line = fn.FileLine(pc)
 
-		slash := strings.LastIndex(file, "/")
-		file = file[slash+1:]
-
-		name = fn.Name()
-
-		if !strings.HasPrefix(name, "runtime.") {
-			slash := strings.LastIndex(name, "/")
-			name = name[slash+1:]
-			break
+		var str string
+		switch {
+		case name != "":
+			str = fmt.Sprintf("%v:%v", name, line)
+		case file != "":
+			str = fmt.Sprintf("%v:%v", file, line)
+		default:
+			str = fmt.Sprintf("pc:%x", pc)
 		}
+		return str
 	}
-
-	var str string
-	switch {
-	case name != "":
-		str = fmt.Sprintf("%v:%v", name, line)
-	case file != "":
-		str = fmt.Sprintf("%v:%v", file, line)
-	default:
-		str = fmt.Sprintf("pc:%x", pc)
-	}
-	return str
 }
 
 // Caller fileds function

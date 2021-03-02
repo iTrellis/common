@@ -32,11 +32,16 @@ func main() {
 
 	stdLog := logger.NewStdLogger()
 
-	logger.StackSkip = 10
-	stdLog = stdLog.WithPrefix("stack", logger.RuntimeCallers)
+	stdCallsLog := stdLog.WithPrefix("std_callers_log", logger.RuntimeCallers(9))
+	stdLog = stdLog.WithPrefix("std_caller_log", logger.RuntimeCaller(8))
 
 	pub := logger.NewPublisher()
 	_, err := pub.Subscriber(stdLog)
+	if err != nil {
+		panic(err)
+	}
+
+	_, err = pub.Subscriber(stdCallsLog)
 	if err != nil {
 		panic(err)
 	}
@@ -55,15 +60,18 @@ func main() {
 		panic(err)
 	}
 
-	pub = pub.WithPrefix("test", "aha")
+	pub = pub.WithPrefix("test", "aha", "pub_caller", logger.RuntimeCallers(5))
 
 	stdLog.Info("key", "value")
 
 	for index := 0; index < 10; index++ {
-		logger.Debug(stdLog, "index", index, "msg", &msg{Name: "haha", Age: 123})
+		stdLog.Debug("index", index, "msg", &msg{Name: "haha", Age: 123})
+		stdLog.Info("index", index, "msg", &msg{Name: "haha", Age: 234})
 
 		if index == 5 {
-			stdLog.SetLevel(logger.InfoLevel)
+			stdLog.SetLevel(logger.WarnLevel)
+		} else if index == 7 {
+			pub.SetLevel(logger.ErrorLevel)
 		}
 
 		pub.Log(logger.InfoLevel, "example_info", index, "msg", &msg{Name: "i am  info", Age: 123})

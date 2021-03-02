@@ -80,16 +80,16 @@ func (p *publisher) publishLog(lvl Level, kvs ...interface{}) {
 	if len(kvs) == 0 {
 		return
 	}
-	prefixes := p.prefixes
+	fields := append(p.prefixes, kvs...)
 	if p.hasCaller {
-		if len(prefixes) != 0 {
-			bindCallers(prefixes)
+		if len(fields) != 0 {
+			bindCallers(fields)
 		}
 	}
 	p.Publish(&Event{
 		Time:   time.Now(),
 		Level:  lvl,
-		Fields: append(prefixes, kvs...),
+		Fields: fields,
 	})
 }
 
