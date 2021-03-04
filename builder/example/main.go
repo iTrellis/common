@@ -23,4 +23,8 @@ import (
 
 func main() {
 	builder.Show()
+
+	builder.Show(false)
+
+	builder.ShowWithColor("{{ .AnsiColor.BrightRed }}")
 }
