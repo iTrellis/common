@@ -10,16 +10,18 @@ github.com/go-kit/kit/log
 github.com/go-logfmt/logfmt
 # github.com/google/uuid v1.2.0
 github.com/google/uuid
-# github.com/konsorten/go-windows-terminal-sequences v1.0.1
-github.com/konsorten/go-windows-terminal-sequences
+# github.com/magefile/mage v1.10.0
+github.com/magefile/mage/mg
+github.com/magefile/mage/sh
 # github.com/mattn/go-colorable v0.1.8
 github.com/mattn/go-colorable
 # github.com/mattn/go-isatty v0.0.12
 github.com/mattn/go-isatty
-# github.com/sirupsen/logrus v1.4.2
+# github.com/sirupsen/logrus v1.8.0
 github.com/sirupsen/logrus
 # golang.org/x/sys v0.0.0-20200223170610-d5e6a3e2c0ae
 golang.org/x/sys/unix
+golang.org/x/sys/windows
 # golang.org/x/text v0.3.5
 golang.org/x/text/encoding
 golang.org/x/text/encoding/internal

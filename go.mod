@@ -8,6 +8,6 @@ require (
 	github.com/go-kit/kit v0.10.0
 	github.com/google/uuid v1.2.0
 	github.com/mattn/go-colorable v0.1.8
-	github.com/sirupsen/logrus v1.4.2
+	github.com/sirupsen/logrus v1.8.0
 	golang.org/x/text v0.3.5
 )
