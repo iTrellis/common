@@ -99,42 +99,64 @@ func Test_ParseStringByteSize(t *testing.T) {
 }
 
 func Test_ParseStringTime(t *testing.T) {
-
-	s := "1y"
+	s := "1s"
 	dt := formats.ParseStringTime(s)
-	var expt time.Duration
+	expt := time.Second
 	testutils.Equals(t, expt, dt)
 
-	dt = formats.ParseStringTime(s, 10)
-	expt = 10
+	s = "10m"
+	dt = formats.ParseStringTime(s)
+	expt = time.Minute * 10
 	testutils.Equals(t, expt, dt)
+	exptDurtion := formats.Duration(expt)
+	testutils.Equals(t, "10m", exptDurtion.String())
 
-	s = "1s"
+	s = "3h"
 	dt = formats.ParseStringTime(s)
-	expt = time.Second
+	expt = time.Hour * 3
 	testutils.Equals(t, expt, dt)
-	s = "1m"
-	dt = formats.ParseStringTime(s)
-	expt = time.Minute
-	testutils.Equals(t, expt, dt)
-	s = "1h"
-	dt = formats.ParseStringTime(s)
-	expt = time.Hour
-	testutils.Equals(t, expt, dt)
+	exptDurtion = formats.Duration(expt)
+	testutils.Equals(t, "3h", exptDurtion.String())
+
 	s = "1d"
 	dt = formats.ParseStringTime(s)
 	expt = time.Hour * 24
 	testutils.Equals(t, expt, dt)
-	s = "1ns"
+	exptDurtion = formats.Duration(expt)
+	testutils.Equals(t, "1d", exptDurtion.String())
+
+	s = "5ns"
 	dt = formats.ParseStringTime(s)
-	expt = time.Nanosecond
+	expt = time.Nanosecond * 5
 	testutils.Equals(t, expt, dt)
-	s = "1us"
+	exptDurtion = formats.Duration(expt)
+	testutils.Equals(t, "5ns", exptDurtion.String())
+
+	s = "10us"
 	dt = formats.ParseStringTime(s)
-	expt = time.Microsecond
+	expt = time.Microsecond * 10
 	testutils.Equals(t, expt, dt)
+	exptDurtion = formats.Duration(expt)
+	testutils.Equals(t, "10us", exptDurtion.String())
+
 	s = "1ms"
 	dt = formats.ParseStringTime(s)
 	expt = time.Millisecond
 	testutils.Equals(t, expt, dt)
+	exptDurtion = formats.Duration(expt)
+	testutils.Equals(t, "1ms", exptDurtion.String())
+
+	s = "2weeks"
+	dt = formats.ParseStringTime(s)
+	expt = 24 * 2 * 7 * time.Hour
+	testutils.Equals(t, expt, dt)
+	exptDurtion = formats.Duration(expt)
+	testutils.Equals(t, "2w", exptDurtion.String())
+
+	s = "2years"
+	dt = formats.ParseStringTime(s)
+	expt = 24 * time.Hour * 365 * 2
+	testutils.Equals(t, expt, dt)
+	exptDurtion = formats.Duration(expt)
+	testutils.Equals(t, "2y", exptDurtion.String())
 }
