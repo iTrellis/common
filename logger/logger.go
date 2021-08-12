@@ -18,58 +18,113 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 package logger
 
 import (
-	"encoding/json"
 	"fmt"
 	"reflect"
-	"runtime"
-	"strings"
 
-	kitlog "github.com/go-kit/kit/log"
-	"github.com/iTrellis/common/event"
+	"github.com/iTrellis/common/json"
+	"go.uber.org/zap/zapcore"
 )
 
 // Logger 日志对象
 type Logger interface {
-	SetLevel(lvl Level)
+	With(kvs ...interface{}) Logger
 
-	WithPrefix(kvs ...interface{}) Logger
-
-	Log(keyvals ...interface{}) error
-	Debug(kvs ...interface{})
+	Log(msg string, keyvals ...interface{})
+	Debug(msg string, kvs ...interface{}) // Debug(msg string, fields ...Field)
 	Debugf(msg string, kvs ...interface{})
-	Info(kvs ...interface{})
+	Info(msg string, kvs ...interface{}) // Info(msg string, fields ...Field)
 	Infof(msg string, kvs ...interface{})
-	Warn(kvs ...interface{})
+	Warn(msg string, kvs ...interface{}) // Warn(msg string, fields ...Field)
 	Warnf(msg string, kvs ...interface{})
-	Error(kvs ...interface{})
+	Error(msg string, kvs ...interface{}) // Error(msg string, fields ...Field)
 	Errorf(msg string, kvs ...interface{})
-	Critical(kvs ...interface{})
-	Criticalf(msg string, kvs ...interface{})
-	Panic(kvs ...interface{})
-	Panicf(msg string, kvs ...interface{})
-
-	event.Subscriber
+	Panic(msg string, kvs ...interface{})
+	Panicf(msg string, kvs ...interface{}) // Panic(msg string, fields ...Field)
+	Fatal(msg string, kvs ...interface{})
+	Fatalf(msg string, kvs ...interface{}) // Fatal(msg string, fields ...Field)
 }
 
-func genLogs(evt *Event) []interface{} {
+// Level log level
+type Level int32
 
-	lenFields := len(evt.Fields)
-	n := 4 + (lenFields+1)/2*2
+// define levels
+const (
+	TraceLevel = Level(iota)
+	DebugLevel
+	InfoLevel
+	WarnLevel
+	ErrorLevel
+	PanicLevel
+	FatalLevel
 
-	logs := make([]interface{}, 0, n)
+	LevelNameUnknown = "NULL"
+	LevelNameTrace   = "TRAC"
+	LevelNameDebug   = "DEBU"
+	LevelNameInfo    = "INFO"
+	LevelNameWarn    = "WARN"
+	LevelNameError   = "ERRO"
+	LevelNamePanic   = "PANC"
+	LevelNameFatal   = "CRIT"
 
-	logs = append(logs, "ts", evt.Time.Format("2006/01/02T15:04:05.000"), "level", ToLevelName(evt.Level))
+	levelColorDebug = "\033[32m%s\033[0m" // grenn
+	levelColorInfo  = "\033[37m%s\033[0m" // white
+	levelColorWarn  = "\033[34m%s\033[0m" // blue
+	levelColorError = "\033[33m%s\033[0m" // yellow
+	levelColorPanic = "\033[35m%s\033[0m" // perple
+	levelColorFatal = "\033[31m%s\033[0m" // red
+)
 
-	for i := 0; i < lenFields; i += 2 {
-		k := evt.Fields[i]
-		var v interface{} = kitlog.ErrMissingValue
-		if i+1 < lenFields {
-			v = evt.Fields[i+1]
-		}
-		logs = append(logs, toString(k), toString(v))
+// Level convert into zap level
+func (p *Level) ToZapLevel() zapcore.Level {
+	switch *p {
+	case TraceLevel, DebugLevel:
+		return zapcore.DebugLevel
+	case InfoLevel:
+		return zapcore.InfoLevel
+	case WarnLevel:
+		return zapcore.WarnLevel
+	case ErrorLevel:
+		return zapcore.ErrorLevel
+	case PanicLevel:
+		return zapcore.PanicLevel
+	case FatalLevel:
+		return zapcore.FatalLevel
+	default:
+		return zapcore.DebugLevel
 	}
+}
 
-	return logs
+// LevelColors printer's color
+var LevelColors = map[Level]string{
+	TraceLevel: levelColorDebug,
+	DebugLevel: levelColorDebug,
+	InfoLevel:  levelColorInfo,
+	WarnLevel:  levelColorWarn,
+	ErrorLevel: levelColorError,
+	PanicLevel: levelColorPanic,
+	FatalLevel: levelColorFatal,
+}
+
+// ToLevelName 等级转换为名称
+func ToLevelName(lvl Level) string {
+	switch lvl {
+	case TraceLevel:
+		return LevelNameTrace
+	case DebugLevel:
+		return LevelNameDebug
+	case InfoLevel:
+		return LevelNameInfo
+	case WarnLevel:
+		return LevelNameWarn
+	case ErrorLevel:
+		return LevelNameError
+	case PanicLevel:
+		return LevelNamePanic
+	case FatalLevel:
+		return LevelNameFatal
+	default:
+		return LevelNameUnknown
+	}
 }
 
 func toString(v interface{}) string {
@@ -85,152 +140,4 @@ func toString(v interface{}) string {
 	default:
 		return fmt.Sprint(v)
 	}
-}
-
-// Debug 调试
-func Debug(l Logger, fields ...interface{}) {
-	l.Debug(fields...)
-}
-
-// Debugf 调试
-func Debugf(l Logger, msg string, fields ...interface{}) {
-	l.Debugf(msg, fields...)
-}
-
-// Info 信息
-func Info(l Logger, fields ...interface{}) {
-	l.Info(fields...)
-}
-
-// Infof 信息
-func Infof(l Logger, msg string, fields ...interface{}) {
-	l.Infof(msg, fields...)
-}
-
-// Error 错误
-func Error(l Logger, fields ...interface{}) {
-	l.Error(fields...)
-}
-
-// Errorf 错误
-func Errorf(l Logger, msg string, fields ...interface{}) {
-	l.Errorf(msg, fields...)
-}
-
-// Warn 警告
-func Warn(l Logger, fields ...interface{}) {
-	l.Warn(fields...)
-}
-
-// Warnf 警告
-func Warnf(l Logger, msg string, fields ...interface{}) {
-	l.Warnf(msg, fields...)
-}
-
-// Critical 异常
-func Critical(l Logger, fields ...interface{}) {
-	l.Critical(fields...)
-}
-
-// Criticalf 异常
-func Criticalf(l Logger, msg string, fields ...interface{}) {
-	l.Criticalf(msg, fields...)
-}
-
-// Panic 异常
-func Panic(l Logger, fields ...interface{}) {
-	l.Panic(fields...)
-}
-
-// Panicf 异常
-func Panicf(l Logger, msg string, fields ...interface{}) {
-	l.Panicf(msg, fields...)
-}
-
-// RuntimeCaller stores a stacktrace under the key "stacktrace".
-func RuntimeCaller(skip int) func() interface{} {
-	return func() interface{} {
-		_, file, line, ok := runtime.Caller(skip)
-		if !ok {
-			file = "<???>"
-			line = 1
-		} else {
-			slash := strings.LastIndex(file, "/")
-			file = file[slash+1:]
-		}
-		return fmt.Sprintf("%s:%d", file, line)
-	}
-}
-
-func RuntimeCallers(skip int) func() interface{} {
-
-	return func() interface{} {
-		var name, file string
-		var line int
-		var pc [16]uintptr
-
-		n := runtime.Callers(skip, pc[:])
-		for _, pc := range pc[:n] {
-			fn := runtime.FuncForPC(pc)
-			if fn == nil {
-				continue
-			}
-			file, line = fn.FileLine(pc)
-
-			slash := strings.LastIndex(file, "/")
-			file = file[slash+1:]
-
-			name = fn.Name()
-
-			if !strings.HasPrefix(name, "runtime.") {
-				slash := strings.LastIndex(name, "/")
-				name = name[slash+1:]
-				break
-			}
-		}
-
-		var str string
-		switch {
-		case name != "":
-			str = fmt.Sprintf("%v:%v", name, line)
-		case file != "":
-			str = fmt.Sprintf("%v:%v", file, line)
-		default:
-			str = fmt.Sprintf("pc:%x", pc)
-		}
-		return str
-	}
-}
-
-// Caller fileds function
-type Caller func() interface{}
-
-func containsCaller(fileds []interface{}) bool {
-	for i := 0; i < len(fileds); i++ {
-		switch fileds[i].(type) {
-		case Caller, func() interface{}:
-			return true
-		}
-	}
-	return false
-}
-
-func bindCallers(fileds []interface{}) {
-	for i := 0; i < len(fileds); i++ {
-		switch fn := fileds[i].(type) {
-		case Caller:
-			fileds[i] = fn()
-		case func() interface{}:
-			fileds[i] = fn()
-		}
-	}
-}
-
-func doCaller(hasCaller bool, prefixes []interface{}, keyvals ...interface{}) []interface{} {
-	kvs := append(prefixes, keyvals...)
-	if !hasCaller {
-		return kvs
-	}
-	bindCallers(kvs)
-	return kvs
 }

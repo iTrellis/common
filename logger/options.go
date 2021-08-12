@@ -17,83 +17,175 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 package logger
 
-import "io"
+import (
+	"errors"
+	"os"
+	"time"
+)
 
-// STDOption option
-type STDOption func(*STDOptions)
+// MoveFileType move file type
+type MoveFileType int
 
-// STDLevel set std logger level
-func STDLevel(lvl Level) STDOption {
-	return func(c *STDOptions) {
-		c.level = lvl
+func (p *MoveFileType) getMoveFileFlag(t time.Time) int {
+	switch *p {
+	case MoveFileTypePerMinite:
+		return t.Minute()
+	case MoveFileTypeHourly:
+		return t.Hour()
+	case MoveFileTypeDaily:
+		return t.Day()
+	default:
+		return 0
 	}
 }
 
-// STDWriter io writer
-func STDWriter(w io.Writer) STDOption {
-	return func(c *STDOptions) {
-		c.writer = w
+// MoveFileTypes
+const (
+	MoveFileTypeNothing   MoveFileType = iota // 不移动
+	MoveFileTypePerMinite                     // 按分钟移动
+	MoveFileTypeHourly                        // 按小时移动
+	MoveFileTypeDaily                         // 按天移动
+)
+
+// FileOptions file options
+type FileOptions struct {
+	Filename    string   `yaml:"filename"`
+	StdPrinters []string `yaml:"std_printers"`
+
+	Separator string `yaml:"separator"`
+	MaxLength int64  `yaml:"max_length"`
+
+	MoveFileType MoveFileType `yaml:"move_file_type"`
+	// 最大保留日志个数，如果为0则全部保留
+	MaxBackups int `yaml:"max_backups"`
+}
+
+func (p *FileOptions) Check() error {
+	if p == nil || p.Filename == "" {
+		return errors.New("file name not exist")
+	}
+
+	_, err := fileExecutor.FileInfo(p.Filename)
+	if err == nil {
+		// 说明文件存在
+		return nil
+	} else {
+		// 不是文件不存在错误，直接返回错误
+		if !os.IsNotExist(err) {
+			return err
+		}
+		// 没有文件创建文件
+		_, err = fileExecutor.WriteAppend(p.Filename, "")
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+type Option func(*LogConfig)
+type LogConfig struct {
+	Level      Level  `yaml:"level"`
+	Encoding   string `yaml:"encoding,omitempty"` // json | console, default console
+	CallerSkip int    `yaml:"caller_skip"`
+	StackTrace bool   `yaml:"stack_trace"`
+	Caller     bool   `yaml:"caller"`
+
+	FileOptions FileOptions `yaml:",inline"`
+}
+
+// Encoding 设置移动文件的类型
+func Encoding(encoding string) Option {
+	return func(f *LogConfig) {
+		f.Encoding = encoding
+	}
+}
+
+// LogLevel 设置等级
+func LogLevel(lvl Level) Option {
+	return func(f *LogConfig) {
+		f.Level = lvl
+	}
+}
+
+// CallerSkip 设置等级
+func CallerSkip(cs int) Option {
+	return func(f *LogConfig) {
+		f.CallerSkip = cs
+	}
+}
+
+// Caller 设置等级
+func Caller() Option {
+	return func(f *LogConfig) {
+		f.Caller = true
+	}
+}
+
+// StackTrace 设置等级
+func StackTrace() Option {
+	return func(f *LogConfig) {
+		f.StackTrace = true
+	}
+}
+
+// LogFileOptions 设置等级
+func LogFileOptions(fos *FileOptions) Option {
+	return func(f *LogConfig) {
+		f.FileOptions = *fos
+	}
+}
+
+// LogFileOption 设置等级
+func LogFileOption(opts ...FileOption) Option {
+	return func(f *LogConfig) {
+		for _, o := range opts {
+			o(&f.FileOptions)
+		}
 	}
 }
 
 // FileOption 操作配置函数
 type FileOption func(*FileOptions)
 
-// FileLevel 设置等级
-func FileLevel(lvl Level) FileOption {
+// OptionSeparator 设置打印分隔符
+func OptionSeparator(separator string) FileOption {
 	return func(f *FileOptions) {
-		f.level = lvl
+		f.Separator = separator
 	}
 }
 
-// FileBuffer 设置Chan的大小
-func FileBuffer(buffer int) FileOption {
+// OptionFilename 设置文件名
+func OptionFilename(name string) FileOption {
 	return func(f *FileOptions) {
-		f.chanBuffer = buffer
+		f.Filename = name
 	}
 }
 
-// FileSeparator 设置打印分隔符
-func FileSeparator(separator string) FileOption {
+// OptionMaxLength 设置最大文件大小
+func OptionMaxLength(length int64) FileOption {
 	return func(f *FileOptions) {
-		f.separator = separator
+		f.MaxLength = length
 	}
 }
 
-// FileFileName 设置文件名
-func FileFileName(name string) FileOption {
+// OptionMaxBackups 文件最大数量
+func OptionMaxBackups(num int) FileOption {
 	return func(f *FileOptions) {
-		f.fileName = name
+		f.MaxBackups = num
 	}
 }
 
-// FileMaxLength 设置最大文件大小
-func FileMaxLength(length int64) FileOption {
+// OptionMoveFileType 设置移动文件的类型
+func OptionMoveFileType(typ MoveFileType) FileOption {
 	return func(f *FileOptions) {
-		f.maxLength = length
+		f.MoveFileType = typ
 	}
 }
 
-// FileMaxBackupFile 文件最大数量
-func FileMaxBackupFile(num int) FileOption {
+// OptionStdPrinters 设置移动文件的类型
+func OptionStdPrinters(ps []string) FileOption {
 	return func(f *FileOptions) {
-		f.maxBackupFile = num
-	}
-}
-
-// FileMoveFileType 设置移动文件的类型
-func FileMoveFileType(typ MoveFileType) FileOption {
-	return func(f *FileOptions) {
-		f.moveFileType = typ
-	}
-}
-
-// LogrusOption 操作配置函数
-type LogrusOption func(*LogrusOptions)
-
-// LogrusLevel 设置等级
-func LogrusLevel(lvl Level) LogrusOption {
-	return func(f *LogrusOptions) {
-		f.level = lvl
+		f.StdPrinters = ps
 	}
 }

@@ -30,58 +30,41 @@ type msg struct {
 
 func main() {
 
-	stdLog := logger.NewStdLogger()
-
-	stdCallsLog := stdLog.WithPrefix("std_callers_log", logger.RuntimeCallers(9))
-	stdLog = stdLog.WithPrefix("std_caller_log", logger.RuntimeCaller(8))
-
-	pub := logger.NewPublisher()
-	_, err := pub.Subscriber(stdLog)
+	fileLog, err := logger.NewFileLogger(logger.OptionFilename("haha.log"))
 	if err != nil {
 		panic(err)
 	}
 
-	_, err = pub.Subscriber(stdCallsLog)
-	if err != nil {
-		panic(err)
-	}
+	stdLog, err := logger.NewLogger(
 
-	fLog, err := logger.NewFileLogger(
-		logger.FileFileName("haha.log"),
-		logger.FileLevel(logger.DebugLevel),
-		logger.FileMoveFileType(1),
+		logger.LogFileOption(
+			logger.OptionFilename("./haha_zap.log"),
+			logger.OptionStdPrinters([]string{"stdout"}),
+			logger.OptionMoveFileType(1),
+			logger.OptionMaxLength(500000),
+			logger.OptionMaxBackups(10),
+		),
+		logger.CallerSkip(1),
+		logger.Caller(),
+		logger.StackTrace(),
+		logger.Encoding("json"),
 	)
 	if err != nil {
 		panic(err)
 	}
-	fLog = fLog.WithPrefix("writer", "test")
-	_, err = pub.Subscriber(fLog)
-	if err != nil {
-		panic(err)
+
+	fileLog.Write([]byte("key=value"))
+
+	for index := 0; index < 10000; index++ {
+		stdLog.Debug("example_debug", "index", index, "msg", &msg{Name: "haha", Age: 123})
+
+		stdLog.Info("example_info", "index", index, "msg", &msg{Name: "i am info", Age: 123})
+		stdLog.Warn("example_warn", "index", index, "msg", &msg{Name: "i am warn", Age: 123})
+		stdLog.Error("example_error", "index", index, "msg", &msg{Name: "i am error", Age: 123})
+		stdLog.Panic("example_panic", "index", index, "msg", &msg{Name: "i am panic", Age: 123})
+		time.Sleep(time.Millisecond * 100)
 	}
 
-	pub = pub.WithPrefix("test", "aha", "pub_caller", logger.RuntimeCallers(5))
-
-	stdLog.Info("key", "value")
-
-	for index := 0; index < 10; index++ {
-		stdLog.Debug("index", index, "msg", &msg{Name: "haha", Age: 123})
-		stdLog.Info("index", index, "msg", &msg{Name: "haha", Age: 234})
-
-		if index == 5 {
-			stdLog.SetLevel(logger.WarnLevel)
-		} else if index == 7 {
-			pub.SetLevel(logger.ErrorLevel)
-		}
-
-		pub.Log(logger.InfoLevel, "example_info", index, "msg", &msg{Name: "i am  info", Age: 123})
-		pub.Log(logger.WarnLevel, "example_warn", index, "msg", &msg{Name: "i am warn", Age: 123})
-		pub.Log(logger.ErrorLevel, "example error", index, "msg", &msg{Name: "i am error", Age: 123})
-		pub.Log(logger.CriticalLevel, "example_critical", index, "msg", &msg{Name: "i am critial", Age: 123})
-		time.Sleep(time.Millisecond)
-	}
-
-	pub.ClearSubscribers()
-	pub.Log(logger.ErrorLevel, "msg", &msg{Name: "non print", Age: 123})
 	time.Sleep(time.Second)
+	stdLog.Fatal("example_fatal", "msg", &msg{Name: "i am fatal", Age: 123})
 }
