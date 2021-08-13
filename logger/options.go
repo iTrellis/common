@@ -21,6 +21,8 @@ import (
 	"errors"
 	"os"
 	"time"
+
+	"go.uber.org/zap/zapcore"
 )
 
 // MoveFileType move file type
@@ -91,6 +93,8 @@ type LogConfig struct {
 	StackTrace bool   `yaml:"stack_trace"`
 	Caller     bool   `yaml:"caller"`
 
+	EncoderConfig *zapcore.EncoderConfig `yaml:",inline,omitempty"`
+
 	FileOptions FileOptions `yaml:",inline"`
 }
 
@@ -142,6 +146,13 @@ func LogFileOption(opts ...FileOption) Option {
 		for _, o := range opts {
 			o(&f.FileOptions)
 		}
+	}
+}
+
+// EncoderConfig 设置等级
+func EncoderConfig(encoder *zapcore.EncoderConfig) Option {
+	return func(f *LogConfig) {
+		f.EncoderConfig = encoder
 	}
 }
 

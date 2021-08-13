@@ -5,6 +5,9 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
+// import github.com/go-kit/kit/log
+// var _ log.Logger = (*ZapLogger)(nil)
+
 type zapSugarLogger func(msg string, keysAndValues ...interface{})
 
 func (l zapSugarLogger) Log(kv ...interface{}) error {

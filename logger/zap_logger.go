@@ -31,10 +31,9 @@ type ZapLogger struct {
 	logger  *zap.Logger
 }
 
-// import github.com/go-kit/kit/log
-// var _ log.Logger = (*ZapLogger)(nil)
+var _ Logger = (*ZapLogger)(nil)
 
-func NewLogger(opts ...Option) (Logger, error) {
+func NewLogger(opts ...Option) (*ZapLogger, error) {
 	zl := &ZapLogger{
 		options: &LogConfig{},
 	}
@@ -42,31 +41,31 @@ func NewLogger(opts ...Option) (Logger, error) {
 		o(zl.options)
 	}
 
-	encoderConfig := zapcore.EncoderConfig{
-		TimeKey:          "ts",
-		LevelKey:         "level",
-		NameKey:          "log",
-		CallerKey:        "caller",
-		MessageKey:       "msg",
-		StacktraceKey:    "stacktrace",
-		LineEnding:       zapcore.DefaultLineEnding,
-		EncodeLevel:      zapcore.LowercaseLevelEncoder,
-		EncodeTime:       zapcore.RFC3339NanoTimeEncoder,
-		EncodeDuration:   zapcore.SecondsDurationEncoder,
-		EncodeCaller:     zapcore.ShortCallerEncoder,
-		ConsoleSeparator: zl.options.FileOptions.Separator,
+	if zl.options.EncoderConfig == nil {
+		zl.options.EncoderConfig = &zapcore.EncoderConfig{
+			TimeKey:          "ts",
+			LevelKey:         "level",
+			NameKey:          "log",
+			CallerKey:        "caller",
+			MessageKey:       "msg",
+			StacktraceKey:    "stacktrace",
+			LineEnding:       zapcore.DefaultLineEnding,
+			EncodeLevel:      zapcore.LowercaseLevelEncoder,
+			EncodeTime:       zapcore.RFC3339NanoTimeEncoder,
+			EncodeDuration:   zapcore.SecondsDurationEncoder,
+			EncodeCaller:     zapcore.ShortCallerEncoder,
+			ConsoleSeparator: zl.options.FileOptions.Separator,
+		}
 	}
 
-	config := zap.NewProductionConfig()
-
-	config.Level = zap.NewAtomicLevelAt(zl.options.Level.ToZapLevel())
+	level := zap.NewAtomicLevelAt(zl.options.Level.ToZapLevel())
 
 	var encoder zapcore.Encoder
 	switch zl.options.Encoding {
 	case "", "console":
-		encoder = zapcore.NewConsoleEncoder(encoderConfig)
+		encoder = zapcore.NewConsoleEncoder(*zl.options.EncoderConfig)
 	case "json":
-		encoder = zapcore.NewJSONEncoder(encoderConfig)
+		encoder = zapcore.NewJSONEncoder(*zl.options.EncoderConfig)
 	default:
 		return nil, errors.New("unknown encoding")
 	}
@@ -95,7 +94,7 @@ func NewLogger(opts ...Option) (Logger, error) {
 		ws = append(ws, w)
 	}
 
-	core := zapcore.NewCore(encoder, zapcore.NewMultiWriteSyncer(ws...), config.Level)
+	core := zapcore.NewCore(encoder, zapcore.NewMultiWriteSyncer(ws...), level)
 
 	var options []zap.Option
 	if zl.options.CallerSkip != 0 {
@@ -103,7 +102,7 @@ func NewLogger(opts ...Option) (Logger, error) {
 	}
 
 	if zl.options.StackTrace {
-		options = append(options, zap.AddStacktrace(config.Level))
+		options = append(options, zap.AddStacktrace(level))
 	}
 
 	if zl.options.Caller {
@@ -112,6 +111,10 @@ func NewLogger(opts ...Option) (Logger, error) {
 
 	zl.logger = zap.New(core, options...)
 	return zl, nil
+}
+
+func (p *ZapLogger) GetZapLogger() *zap.Logger {
+	return p.logger
 }
 
 // With (fields ...Field)
@@ -137,7 +140,7 @@ func (p *ZapLogger) With(kvs ...interface{}) Logger {
 
 // Debug(msg string, fields ...Field)
 func (p *ZapLogger) Log(kvs ...interface{}) error {
-	p.Info("no_message", kvs...)
+	p.Info("", kvs...)
 	return nil
 }
 
