@@ -31,6 +31,9 @@ type ZapLogger struct {
 	logger  *zap.Logger
 }
 
+// import github.com/go-kit/kit/log
+// var _ log.Logger = (*ZapLogger)(nil)
+
 func NewLogger(opts ...Option) (Logger, error) {
 	zl := &ZapLogger{
 		options: &LogConfig{},
@@ -48,7 +51,7 @@ func NewLogger(opts ...Option) (Logger, error) {
 		StacktraceKey:    "stacktrace",
 		LineEnding:       zapcore.DefaultLineEnding,
 		EncodeLevel:      zapcore.LowercaseLevelEncoder,
-		EncodeTime:       zapcore.RFC3339TimeEncoder,
+		EncodeTime:       zapcore.RFC3339NanoTimeEncoder,
 		EncodeDuration:   zapcore.SecondsDurationEncoder,
 		EncodeCaller:     zapcore.ShortCallerEncoder,
 		ConsoleSeparator: zl.options.FileOptions.Separator,
@@ -91,7 +94,6 @@ func NewLogger(opts ...Option) (Logger, error) {
 		}
 		ws = append(ws, w)
 	}
-	zapcore.NewMultiWriteSyncer(ws...)
 
 	core := zapcore.NewCore(encoder, zapcore.NewMultiWriteSyncer(ws...), config.Level)
 
@@ -112,7 +114,7 @@ func NewLogger(opts ...Option) (Logger, error) {
 	return zl, nil
 }
 
-// With(fields ...Field)
+// With (fields ...Field)
 func (p *ZapLogger) With(kvs ...interface{}) Logger {
 	newZL := &ZapLogger{
 		options: p.options,
@@ -134,8 +136,9 @@ func (p *ZapLogger) With(kvs ...interface{}) Logger {
 }
 
 // Debug(msg string, fields ...Field)
-func (p *ZapLogger) Log(msg string, kvs ...interface{}) {
-	p.Info(msg, kvs...)
+func (p *ZapLogger) Log(kvs ...interface{}) error {
+	p.Info("no_message", kvs...)
+	return nil
 }
 
 // Debug(msg string, fields ...Field)

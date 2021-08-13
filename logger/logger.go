@@ -25,11 +25,16 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
+type SimpleLogger interface {
+	Log(keyvals ...interface{}) error
+}
+
 // Logger 日志对象
 type Logger interface {
+	SimpleLogger
+
 	With(kvs ...interface{}) Logger
 
-	Log(msg string, keyvals ...interface{})
 	Debug(msg string, kvs ...interface{}) // Debug(msg string, fields ...Field)
 	Debugf(msg string, kvs ...interface{})
 	Info(msg string, kvs ...interface{}) // Info(msg string, fields ...Field)
@@ -74,7 +79,7 @@ const (
 	levelColorFatal = "\033[31m%s\033[0m" // red
 )
 
-// Level convert into zap level
+// ToZapLevel  convert level into zap level
 func (p *Level) ToZapLevel() zapcore.Level {
 	switch *p {
 	case TraceLevel, DebugLevel:
@@ -105,7 +110,7 @@ var LevelColors = map[Level]string{
 	FatalLevel: levelColorFatal,
 }
 
-// ToLevelName 等级转换为名称
+// ToLevelName corvert level into string name
 func ToLevelName(lvl Level) string {
 	switch lvl {
 	case TraceLevel:
