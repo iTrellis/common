@@ -58,43 +58,60 @@ func TN(namespace string, code uint64, message string) *ErrorCodeTmpl {
 	return tmpl
 }
 
+type Option func(*Options)
+type Options struct {
+	Params  map[string]string
+	Callers int
+}
+
+func Parmas(ps map[string]string) Option {
+	return func(o *Options) {
+		o.Params = ps
+	}
+}
+
+func Callers(c int) Option {
+	return func(o *Options) {
+		o.Callers = c
+	}
+}
+
 // New ErrorCodeTmpl new error code by template
-func (p *ErrorCodeTmpl) New(v ...Params) ErrorCode {
-	params := Params{}
-	if len(v) != 0 {
-		for _, v := range v {
-			for k, param := range v {
-				params[k] = param
-			}
-		}
+func (p *ErrorCodeTmpl) New(opts ...Option) ErrorCode {
+	options := &Options{}
+	for _, o := range opts {
+		o(options)
+	}
+
+	if options.Params == nil {
+		options.Params = make(map[string]string)
 	}
 
 	eCode := &errorCode{
-		code:       p.code,
-		stackTrace: callersDeepth(5),
-		context:    make(map[string]interface{}),
+		code:    p.code,
+		context: make(map[string]interface{}),
 	}
 
 	errID := hash.NewCRCIEEE().Sum(fmt.Sprintf("%s.%d.%s.%d",
 		p.namespace, p.code, p.message, time.Now().UnixNano()))
 
-	t, e := template.New(genErrorCodeKey(p.namespace, p.code)).Parse(p.message)
-	if e != nil {
+	t, err := template.New(genErrorCodeKey(p.namespace, p.code)).Parse(p.message)
+	if err != nil {
 		eCode.code = errorcodeParseTemplate
 
 		eCode.err = new(p.namespace, errID, fmt.Sprintf(
 			"parser template error, namespace: %s, code: %d, error: %s",
-			p.namespace, p.code, e.Error()))
+			p.namespace, p.code, err.Error()))
 		return eCode
 	}
 
 	var buf bytes.Buffer
-	if e := t.Execute(&buf, params); e != nil {
+	if err := t.Execute(&buf, options.Params); err != nil {
 		eCode.code = errorcodeExecuteTemplate
 
 		eCode.err = new(p.namespace, errID, fmt.Sprintf(
 			"execute template error, namespace: %s code: %d, error: %s",
-			p.message, p.code, e.Error()))
+			p.message, p.code, err.Error()))
 		return eCode
 	}
 	eCode.err = new(p.namespace, errID, buf.String())

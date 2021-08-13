@@ -1,6 +1,6 @@
 # github.com/codegangsta/inject v0.0.0-20150114235600-33e0aa1cb7c0
 github.com/codegangsta/inject
-# github.com/common-nighthawk/go-figure v0.0.0-20210622060536-734e95fb86be
+# github.com/common-nighthawk/go-figure v0.0.0-20200609044655-c4b36f998cf2
 github.com/common-nighthawk/go-figure
 # github.com/dimiro1/banner v1.1.0
 github.com/dimiro1/banner
@@ -12,13 +12,13 @@ github.com/json-iterator/go
 github.com/mattn/go-colorable
 # github.com/mattn/go-isatty v0.0.13
 github.com/mattn/go-isatty
-# github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd
+# github.com/modern-go/concurrent v0.0.0-20180228061459-e0a39a4cb421
 github.com/modern-go/concurrent
-# github.com/modern-go/reflect2 v1.0.1
+# github.com/modern-go/reflect2 v0.0.0-20180701023420-4b7aa43c6742
 github.com/modern-go/reflect2
-# go.uber.org/atomic v1.9.0
+# go.uber.org/atomic v1.7.0
 go.uber.org/atomic
-# go.uber.org/multierr v1.7.0
+# go.uber.org/multierr v1.6.0
 go.uber.org/multierr
 # go.uber.org/zap v1.19.0
 go.uber.org/zap
@@ -30,7 +30,7 @@ go.uber.org/zap/zapcore
 # golang.org/x/sys v0.0.0-20210809222454-d867a43fc93e
 golang.org/x/sys/internal/unsafeheader
 golang.org/x/sys/unix
-# golang.org/x/text v0.3.5
+# golang.org/x/text v0.3.7
 golang.org/x/text/encoding
 golang.org/x/text/encoding/internal
 golang.org/x/text/encoding/internal/identifier

@@ -22,15 +22,17 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/iTrellis/common/data-structures/stack"
 	"github.com/google/uuid"
+)
+
+const (
+	defaultNamespace = "T:E"
 )
 
 // ErrorCode Error functions
 type ErrorCode interface {
 	SimpleError
 	Code() uint64
-	StackTrace() string
 	Context() ErrorContext
 	Append(err ...error) ErrorCode
 	WithContext(k string, v interface{}) ErrorCode
@@ -46,8 +48,7 @@ type ErrorOptions struct {
 	code      uint64
 	message   string
 
-	stackTrace stack.Stack
-	ctx        map[string]interface{}
+	ctx map[string]interface{}
 }
 
 // NewSimpleError new simple errors by options
@@ -83,13 +84,6 @@ func OptionMesssage(msg string) OptionFunc {
 	}
 }
 
-// OptionStackTrace set error code into options
-func OptionStackTrace(stackTrace stack.Stack) OptionFunc {
-	return func(p *ErrorOptions) {
-		p.stackTrace = stackTrace
-	}
-}
-
 // OptionContext set error code into options
 func OptionContext(ctx map[string]interface{}) OptionFunc {
 	return func(p *ErrorOptions) {
@@ -98,11 +92,11 @@ func OptionContext(ctx map[string]interface{}) OptionFunc {
 }
 
 type errorCode struct {
-	err        SimpleError
-	code       uint64
-	stackTrace stack.Stack
-	context    map[string]interface{}
-	errors     []string
+	err  SimpleError
+	code uint64
+
+	context map[string]interface{}
+	errors  []string
 }
 
 // NewErrorCode get a new error code
@@ -112,7 +106,7 @@ func NewErrorCode(ofs ...OptionFunc) ErrorCode {
 		o(opts)
 	}
 	if opts.namespace == "" {
-		opts.namespace = "T:E"
+		opts.namespace = defaultNamespace
 	}
 	if opts.id == "" {
 		opts.id = uuid.New().String()
@@ -123,15 +117,14 @@ func NewErrorCode(ofs ...OptionFunc) ErrorCode {
 	}
 
 	return &errorCode{
-		err:        opts.NewSimpleError(),
-		stackTrace: opts.stackTrace,
-		context:    opts.ctx,
+		err:     opts.NewSimpleError(),
+		context: opts.ctx,
 	}
 }
 
-func (p *errorCode) Append(err ...error) ErrorCode {
-	if err == nil {
-		return p
+func (p *errorCode) Append(errs ...error) ErrorCode {
+	for _, err := range errs {
+		p.errors = append(p.errors, err.Error())
 	}
 	return p
 }
@@ -162,7 +155,6 @@ func (p *errorCode) FullError() string {
 			fmt.Sprintf("ID:%s#%s", genErrorCodeKey(p.Namespace(), p.Code()), p.ID()),
 			"Error:", p.Error(),
 			"Context:", p.Context().Error(),
-			"StackTrace:", p.StackTrace(),
 		), "\n")
 }
 
@@ -172,11 +164,6 @@ func (p *errorCode) ID() string {
 
 func (p *errorCode) Namespace() string {
 	return p.err.Namespace()
-}
-
-func (p *errorCode) StackTrace() string {
-	frames, _ := p.stackTrace.PopAll()
-	return frameToString(frames)
 }
 
 func (p *errorCode) WithContext(key string, value interface{}) ErrorCode {

@@ -46,7 +46,7 @@ func Newf(text string, params ...interface{}) SimpleError {
 
 // New 生成简单对象
 func New(text string) SimpleError {
-	return new("T:S", uuid.New().String(), text)
+	return new(defaultNamespace, uuid.New().String(), text)
 }
 
 func new(namespace, id, message string) *Error {

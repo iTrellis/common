@@ -66,26 +66,46 @@ const bannerLogo = `%s**********************************************************
 *******************************************************************
 `
 
-// Show 显示项目信息
-func Show(on ...bool) {
-	ShowWithColor("{{ .AnsiColor.Default }}", on...)
+type Option func(*Options)
+type Options struct {
+	Color   string
+	OnShow  bool
+	OnColor bool
 }
 
-// ShowWithColor 显示项目信息
-func ShowWithColor(color string, on ...bool) {
+func Color(c string) Option {
+	return func(o *Options) {
+		o.Color = c
+	}
+}
 
-	newBanner := fmt.Sprintf(bannerLogo, color,
+func OnShow() Option {
+	return func(o *Options) {
+		o.OnShow = true
+	}
+}
+
+func OnColor() Option {
+	return func(o *Options) {
+		o.OnColor = true
+	}
+}
+
+// Show 显示项目信息
+func Show(opts ...Option) {
+	options := &Options{}
+	for _, o := range opts {
+		o(options)
+	}
+
+	if options.Color == "" {
+		options.Color = "{{ .AnsiColor.Default }}"
+	}
+
+	newBanner := fmt.Sprintf(bannerLogo, options.Color,
 		ProgramName, ProgramVersion,
 		ProgramBranch, ProgramRevision,
 		CompilerVersion, BuildTime, Author)
 
-	onShow, onColor := true, true
-	if lenOns := len(on); lenOns == 1 {
-		onShow = on[0]
-	} else if lenOns > 1 {
-		onShow = on[0]
-		onColor = on[1]
-	}
-
-	banner.Init(colorable.NewColorableStdout(), onShow, onColor, strings.NewReader(newBanner))
+	banner.Init(colorable.NewColorableStdout(), options.OnShow, options.OnColor, strings.NewReader(newBanner))
 }

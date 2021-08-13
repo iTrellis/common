@@ -19,9 +19,9 @@ package rijndael
 
 import (
 	"bytes"
-	"errors"
 
 	"github.com/iTrellis/common"
+	"github.com/iTrellis/common/errors"
 )
 
 // Errors padding & unpadding can return

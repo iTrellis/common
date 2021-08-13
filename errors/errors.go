@@ -37,10 +37,9 @@ func (p Errors) Error() string {
 
 // Append 增补错误对象
 func (p Errors) Append(errs ...error) Errors {
-	if len(errs) == 0 {
-		return p
+	for _, err := range errs {
+		p = append(p, err)
 	}
-	p = append(p, errs...)
 	return p
 }
 
