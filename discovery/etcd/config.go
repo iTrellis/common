@@ -21,15 +21,21 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"sync"
 	"time"
+
+	"github.com/mitchellh/hashstructure"
+	"go.etcd.io/etcd/api/v3/v3rpc/rpctypes"
+	"go.etcd.io/etcd/client/pkg/v3/transport"
+	clientv3 "go.etcd.io/etcd/client/v3"
+	"go.uber.org/zap"
 
 	"github.com/iTrellis/common/backoff"
 	"github.com/iTrellis/common/codec"
 	"github.com/iTrellis/common/errors"
 	"github.com/iTrellis/common/formats"
+	"github.com/iTrellis/common/logger"
 	iTLS "github.com/iTrellis/common/tls"
-	"go.etcd.io/etcd/client/pkg/v3/transport"
-	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
 // Config for a new etcd.Client.
@@ -41,6 +47,9 @@ type Config struct {
 	UserName    string            `yaml:"username"`
 	Password    formats.Hide      `yaml:"password"`
 	TLS         iTLS.ClientConfig `yaml:",inline"`
+	TTL         formats.Duration  `yaml:"ttl"` // use with lease
+
+	ZapLogger *zap.Logger `yaml:"-"`
 }
 
 // Client implements ring.KVClient for etcd.
@@ -48,6 +57,12 @@ type Client struct {
 	cfg   Config
 	codec codec.Codec
 	cli   *clientv3.Client
+
+	logger logger.Logger
+
+	mu     sync.RWMutex
+	leases map[string]clientv3.LeaseID
+	hashs  map[string]uint64
 }
 
 // GetTLS sets the TLS config field with certs
@@ -94,68 +109,147 @@ func New(cfg Config, codec codec.Codec) (*Client, error) {
 		TLS:                  tlsConfig,
 		Username:             cfg.UserName,
 		Password:             string(cfg.Password),
+		Logger:               cfg.ZapLogger,
 	})
 	if err != nil {
 		return nil, err
 	}
 
 	return &Client{
-		cfg:   cfg,
-		codec: codec,
-		cli:   cli,
+		cfg:    cfg,
+		codec:  codec,
+		cli:    cli,
+		logger: logger.NewWithZapLogger(cfg.ZapLogger),
+		leases: make(map[string]clientv3.LeaseID),
+		hashs:  make(map[string]uint64),
 	}, nil
 }
 
 // CAS implements kv.Client.
-// TODO key with lease
-func (p *Client) CAS(ctx context.Context, key string, f func(in interface{}) (out interface{}, retry bool, err error)) error {
+// TODO Test with lease
+func (p *Client) CAS(ctx context.Context, key string,
+	f func(in interface{}) (out interface{}, retry bool, err error)) error {
 	var revision int64
 	var lastErr error
 
 	for i := 0; i < p.cfg.MaxRetries; i++ {
-		resp, err := p.cli.Get(ctx, key)
-		if err != nil {
-			// level.Error(util_log.Logger).Log("msg", "error getting key", "key", key, "err", err)
-			lastErr = err
-			continue
-		}
+		p.mu.Lock()
+		leaseID, ok := p.leases[key]
+		p.mu.Unlock()
 
 		var intermediate interface{}
-		if len(resp.Kvs) > 0 {
-			intermediate, err = p.codec.Unmarshal(resp.Kvs[0].Value)
+		if !ok {
+			// missing lease, check if the key exists.
+			resp, err := p.cli.Get(ctx, key, clientv3.WithSerializable())
 			if err != nil {
-				// level.Error(util_log.Logger).Log("msg", "error decoding key", "key", key, "err", err)
+				p.logger.Error("error getting key", "key", key, "err", err)
 				lastErr = err
 				continue
 			}
-			revision = resp.Kvs[0].Version
-		}
 
-		var retry bool
-		intermediate, retry, err = f(intermediate)
-		if err != nil {
-			if !retry {
-				return err
+			for _, kv := range resp.Kvs {
+				if kv.Lease > 0 {
+					leaseID = clientv3.LeaseID(kv.Lease)
+
+					intermediate, err = p.codec.Unmarshal(kv.Value)
+					if err != nil {
+						lastErr = err
+						continue
+					}
+
+					intermediate, _, err = f(intermediate)
+					if err != nil {
+						lastErr = err
+						continue
+					}
+
+					h, err := hashstructure.Hash(intermediate, nil)
+					if err != nil {
+						lastErr = err
+						continue
+					}
+
+					p.mu.Lock()
+					p.leases[key] = leaseID
+					p.hashs[key] = h
+					p.mu.Unlock()
+
+					revision = kv.Version
+
+					break
+				}
 			}
-			lastErr = err
-			continue
 		}
 
-		// Callback returning nil means it doesn't want to CAS anymore.
+		var leaseNotFound bool
+
+		if leaseID > 0 {
+			p.logger.Debugf("Renewing existing lease for %s %d", key, leaseID)
+
+			if _, err := p.cli.KeepAliveOnce(context.TODO(), leaseID); err != nil {
+				if err != rpctypes.ErrLeaseNotFound {
+					return err
+				}
+
+				p.logger.Debugf("Lease not found for %s %d", key, leaseID)
+
+				// lease not found do register
+				leaseNotFound = true
+			}
+		}
+
+		// get existing hash for the service node
+		p.mu.RLock()
+		v, ok := p.hashs[key]
+		p.mu.RUnlock()
+
+		var err error
 		if intermediate == nil {
+			intermediate, _, err = f(nil)
+			if err != nil {
+				lastErr = err
+				continue
+			}
+		}
+
+		// create hash of service; uint64
+		h, err := hashstructure.Hash(intermediate, nil)
+		if err != nil {
+			return err
+		}
+
+		// the service is unchanged, skip registering
+		if ok && v == h && !leaseNotFound {
+			p.logger.Infof(" %s unchanged skipping registration", key)
 			return nil
 		}
 
 		buf, err := p.codec.Marshal(intermediate)
 		if err != nil {
-			// level.Error(util_log.Logger).Log("msg", "error serialising value", "key", key, "err", err)
 			lastErr = err
 			continue
 		}
 
+		var lgr *clientv3.LeaseGrantResponse
+		if p.cfg.TTL.Seconds() > 0 {
+			// get a lease used to expire keys since we have a ttl
+			lgr, err = p.cli.Grant(ctx, int64(p.cfg.TTL.Seconds()))
+			if err != nil {
+				return err
+			}
+		}
+
+		// create an entry for the node
+		var putOpts []clientv3.OpOption
+		if lgr != nil {
+			putOpts = append(putOpts, clientv3.WithLease(lgr.ID))
+
+			p.logger.Debugf("Registering %s with lease %v and leaseID %v and ttl %v", key, lgr, lgr.ID, p.cfg.TTL)
+		}
+
 		result, err := p.cli.Txn(ctx).
 			If(clientv3.Compare(clientv3.Version(key), "=", revision)).
-			Then(clientv3.OpPut(key, string(buf))).
+			Then(clientv3.OpPut(key, string(buf), putOpts...)).
 			Commit()
 		if err != nil {
 			// level.Error(util_log.Logger).Log("msg", "error CASing", "key", key, "err", err)
@@ -167,6 +261,11 @@ func (p *Client) CAS(ctx context.Context, key string, f func(in interface{}) (ou
 			// level.Debug(util_log.Logger).Log("msg", "failed to CAS, revision and version did not match in etcd", "key", key, "revision", revision)
 			continue
 		}
+
+		p.mu.Lock()
+		p.leases[key] = leaseID
+		p.hashs[key] = h
+		p.mu.Unlock()
 
 		return nil
 	}

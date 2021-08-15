@@ -26,6 +26,13 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
+func NewWithZapLogger(l *zap.Logger) Logger {
+	if l == nil {
+		return &noop{}
+	}
+	return &ZapLogger{logger: l}
+}
+
 type ZapLogger struct {
 	options *LogConfig
 	logger  *zap.Logger

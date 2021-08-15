@@ -9,6 +9,8 @@ require (
 	github.com/google/uuid v1.3.0
 	github.com/json-iterator/go v1.1.11
 	github.com/mattn/go-colorable v0.1.8
+	github.com/mitchellh/hashstructure v1.1.0
+	go.etcd.io/etcd/api/v3 v3.5.0
 	go.etcd.io/etcd/client/pkg/v3 v3.5.0
 	go.etcd.io/etcd/client/v3 v3.5.0
 	go.uber.org/zap v1.19.0

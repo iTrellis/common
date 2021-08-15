@@ -25,29 +25,15 @@ import (
 	"github.com/iTrellis/common/errors"
 )
 
-const (
-	// Primary is a role to use KV store primarily.
-	Primary = role("primary")
-	// Secondary is a role for KV store used by "multi" KV store.
-	Secondary = role("secondary")
-)
-
-// The role type indicates a role of KV store.
-type role string
-
 // // Labels method returns Prometheus labels relevant to itself.
 // func (r *role) Labels() prometheus.Labels {
 // 	return prometheus.Labels{"role": string(*r)}
 // }
 
-var (
-	_ Client = (*etcd.Client)(nil)
-)
-
 // StoreConfig is a configuration used for building single store client, either
 // Consul, Etcd, Memberlist or MultiClient. It was extracted from Config to keep
 // single-client config separate from final client-config (with all the wrappers)
-type StoreConfig struct {
+type Config struct {
 	// // Consul consul.Config `yaml:"consul"`
 	Etcd etcd.Config `yaml:"etcd"`
 	// // Multi  MultiConfig   `yaml:"multi"`
@@ -91,7 +77,7 @@ type Client interface {
 }
 
 // , reg prometheus.Registerer
-func createClient(backend string, prefix string, cfg StoreConfig, codec codec.Codec, role role) (Client, error) {
+func createClient(backend string, prefix string, cfg Config, codec codec.Codec) (Client, error) {
 	var client Client
 	var err error
 
@@ -102,33 +88,12 @@ func createClient(backend string, prefix string, cfg StoreConfig, codec codec.Co
 	case "etcd":
 		client, err = etcd.New(cfg.Etcd, codec)
 
-	// case "inmemory":
-	// 	// If we use the in-memory store, make sure everyone gets the same instance
-	// 	// within the same process.
-	// 	inmemoryStoreInit.Do(func() {
-	// 		inmemoryStore = consul.NewInMemoryClient(codec)
-	// 	})
-	// 	client = inmemoryStore
-
-	// case "memberlist":
-	// 	kv, err := cfg.MemberlistKV()
-	// 	if err != nil {
-	// 		return nil, err
-	// 	}
-	// 	client, err = memberlist.NewClient(kv, codec)
-	// 	if err != nil {
-	// 		return nil, err
-	// 	}
-
-	// case "multi":
-	// 	client, err = buildMultiClient(cfg, codec, reg)
-
 	// This case is for testing. The mock KV client does not do anything internally.
 	case "mock":
 		client, err = buildMockClient()
 
 	default:
-		return nil, errors.Newf("invalid KV store type: %s", backend)
+		return nil, errors.Newf("invalid discovery type: %s", backend)
 	}
 
 	if err != nil {

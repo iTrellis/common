@@ -84,3 +84,7 @@ func (d *Duration) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	*d = Duration(dur)
 	return nil
 }
+
+func (d Duration) Seconds() int64 {
+	return int64(time.Duration(d) / time.Second)
+}

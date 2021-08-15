@@ -53,7 +53,8 @@ func (c *prefixedKVClient) List(ctx context.Context, prefix string) ([]string, e
 
 // CAS atomically modifies a value in a callback. If the value doesn't exist,
 // you'll get 'nil' as an argument to your callback.
-func (c *prefixedKVClient) CAS(ctx context.Context, key string, f func(in interface{}) (out interface{}, retry bool, err error)) error {
+func (c *prefixedKVClient) CAS(ctx context.Context, key string,
+	f func(in interface{}) (out interface{}, retry bool, err error)) error {
 	return c.client.CAS(ctx, c.prefix+key, f)
 }
 
