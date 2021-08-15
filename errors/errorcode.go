@@ -48,6 +48,8 @@ type ErrorOptions struct {
 	code      uint64
 	message   string
 
+	errs []error
+
 	ctx map[string]interface{}
 }
 
@@ -77,14 +79,21 @@ func OptionNamespace(ns string) OptionFunc {
 	}
 }
 
-// OptionMesssage set error code into options
+// OptionMesssage set error message into options
 func OptionMesssage(msg string) OptionFunc {
 	return func(p *ErrorOptions) {
 		p.message = msg
 	}
 }
 
-// OptionContext set error code into options
+// OptionErrs append errs
+func OptionErrs(errs ...error) OptionFunc {
+	return func(p *ErrorOptions) {
+		p.errs = append(p.errs, errs...)
+	}
+}
+
+// OptionContext set error context into options
 func OptionContext(ctx map[string]interface{}) OptionFunc {
 	return func(p *ErrorOptions) {
 		p.ctx = ctx
@@ -96,7 +105,7 @@ type errorCode struct {
 	code uint64
 
 	context map[string]interface{}
-	errors  []string
+	errors  []error
 }
 
 // NewErrorCode get a new error code
@@ -116,15 +125,19 @@ func NewErrorCode(ofs ...OptionFunc) ErrorCode {
 		opts.ctx = make(map[string]interface{})
 	}
 
-	return &errorCode{
+	ec := &errorCode{
 		err:     opts.NewSimpleError(),
 		context: opts.ctx,
 	}
+
+	ec.errors = append(ec.errors, opts.errs...)
+
+	return ec
 }
 
 func (p *errorCode) Append(errs ...error) ErrorCode {
 	for _, err := range errs {
-		p.errors = append(p.errors, err.Error())
+		p.errors = append(p.errors, err)
 	}
 	return p
 }
@@ -142,11 +155,11 @@ func (p *errorCode) Context() ErrorContext {
 }
 
 func (p *errorCode) Error() string {
-	msg := p.err.Error()
-	if len(p.errors) > 0 {
-		msg = msg + "; " + strings.Join(p.errors, "; ")
+	var errs = []string{p.err.Error()}
+	for _, err := range p.errors {
+		errs = append(errs, err.Error())
 	}
-	return msg
+	return strings.Join(errs, "; ")
 }
 
 func (p *errorCode) FullError() string {

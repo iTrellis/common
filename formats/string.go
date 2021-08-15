@@ -18,11 +18,38 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 package formats
 
 import (
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"strconv"
 	"strings"
 )
+
+const Hidden = "<hidden>"
+
+type Hide string
+
+// MarshalYAML implements the yaml.Marshaler interface for Hide.
+func (s Hide) MarshalYAML() (interface{}, error) {
+	if s != "" {
+		return Hidden, nil
+	}
+	return nil, nil
+}
+
+//UnmarshalYAML implements the yaml.Unmarshaler interface for Hide.
+func (s *Hide) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	type plain Hide
+	return unmarshal((*plain)(s))
+}
+
+// MarshalJSON implements the json.Marshaler interface for Hide.
+func (s Hide) MarshalJSON() ([]byte, error) {
+	if len(s) == 0 {
+		return json.Marshal("")
+	}
+	return json.Marshal(Hidden)
+}
 
 // Strings array string
 type Strings []string

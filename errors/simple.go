@@ -39,14 +39,14 @@ type Error struct {
 	message   string
 }
 
-// Newf 生成简单对象
-func Newf(text string, params ...interface{}) SimpleError {
-	return New(fmt.Sprintf(text, params...))
-}
-
 // New 生成简单对象
 func New(text string) SimpleError {
 	return new(defaultNamespace, uuid.New().String(), text)
+}
+
+// Newf 生成简单对象
+func Newf(text string, params ...interface{}) SimpleError {
+	return New(fmt.Sprintf(text, params...))
 }
 
 func new(namespace, id, message string) *Error {
