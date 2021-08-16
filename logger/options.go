@@ -19,7 +19,6 @@ package logger
 
 import (
 	"errors"
-	"os"
 	"time"
 
 	"go.uber.org/zap/zapcore"
@@ -60,6 +59,9 @@ type FileOptions struct {
 	MoveFileType MoveFileType `yaml:"move_file_type"`
 	// 最大保留日志个数，如果为0则全部保留
 	MaxBackups int `yaml:"max_backups"`
+
+	// 并发写入文件的操作
+	ConcurrencyWrite bool `yaml:"concurrency_write"`
 }
 
 func (p *FileOptions) Check() error {
@@ -67,21 +69,6 @@ func (p *FileOptions) Check() error {
 		return errors.New("file name not exist")
 	}
 
-	_, err := fileExecutor.FileInfo(p.Filename)
-	if err == nil {
-		// 说明文件存在
-		return nil
-	} else {
-		// 不是文件不存在错误，直接返回错误
-		if !os.IsNotExist(err) {
-			return err
-		}
-		// 没有文件创建文件
-		_, err = fileExecutor.WriteAppend(p.Filename, "")
-		if err != nil {
-			return err
-		}
-	}
 	return nil
 }
 
@@ -198,5 +185,11 @@ func OptionMoveFileType(typ MoveFileType) FileOption {
 func OptionStdPrinters(ps []string) FileOption {
 	return func(f *FileOptions) {
 		f.StdPrinters = ps
+	}
+}
+
+func OptionConcurrencyWrite() FileOption {
+	return func(fo *FileOptions) {
+		fo.ConcurrencyWrite = true
 	}
 }

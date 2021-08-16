@@ -24,6 +24,7 @@ func New(config *Config) log.Logger {
 			logger.OptionMoveFileType(logger.MoveFileType(config.MoveFileType)),
 			logger.OptionMaxLength(config.MaxLength),
 			logger.OptionMaxBackups(config.MaxBackups),
+			logger.OptionConcurrencyWrite(),
 		),
 		logger.EncoderConfig(&zapcore.EncoderConfig{}),
 	)
