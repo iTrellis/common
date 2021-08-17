@@ -24,8 +24,10 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
+	"github.com/iTrellis/common/errors"
 	"github.com/iTrellis/common/files"
 	"go.uber.org/zap/zapcore"
 )
@@ -36,6 +38,9 @@ var (
 
 type fileLogger struct {
 	options FileOptions
+
+	mutex    sync.Mutex
+	fileRepo files.FileRepo
 }
 
 // NewFileLogger 标准窗体的输出对象
@@ -71,12 +76,27 @@ func NewFileLoggerWithOptions(opts FileOptions) (*fileLogger, error) {
 	return fw, nil
 }
 
-var fileExecutor = files.New()
-
 func (p *fileLogger) init() error {
+	if p == nil || p.options.Filename == "" {
+		return errors.New("file name not exist")
+	}
 
-	if err := p.options.Check(); err != nil {
-		return err
+	p.fileRepo = files.NewFileInfo(files.Concurrency())
+
+	_, err := p.fileRepo.FileInfo(p.options.Filename)
+	if err == nil {
+		// 说明文件存在
+		return nil
+	} else {
+		// 不是文件不存在错误，直接返回错误
+		if !os.IsNotExist(err) {
+			return err
+		}
+		// 没有文件创建文件
+		_, err = p.fileRepo.WriteAppend(p.options.Filename, "")
+		if err != nil {
+			return err
+		}
 	}
 
 	if p.options.Separator == "" {
@@ -87,17 +107,19 @@ func (p *fileLogger) init() error {
 }
 
 func (p *fileLogger) Write(bs []byte) (int, error) {
-	if err := p.judgeMoveFile(time.Now()); err != nil {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+	if err := p.checkFile(time.Now()); err != nil {
 		return 0, err
 	}
-	return fileExecutor.WriteAppendBytes(p.options.Filename, bs)
+	return p.fileRepo.WriteAppendBytes(p.options.Filename, bs)
 }
 
 func (p *fileLogger) Sync() error { return nil }
 
-func (p *fileLogger) judgeMoveFile(t time.Time) error {
+func (p *fileLogger) checkFile(t time.Time) (err error) {
 
-	fi, err := fileExecutor.FileInfo(p.options.Filename)
+	fi, err := p.fileRepo.FileInfo(p.options.Filename)
 	if err != nil {
 		if !os.IsNotExist(err) {
 			return err
@@ -115,7 +137,7 @@ func (p *fileLogger) judgeMoveFile(t time.Time) error {
 
 func (p *fileLogger) moveFile(t time.Time) error {
 
-	err := fileExecutor.Rename(
+	err := p.fileRepo.Rename(
 		p.options.Filename, fmt.Sprintf("%s_%s", p.options.Filename, t.Format("20060102150405.999999999")))
 	if err != nil {
 		return err
@@ -125,7 +147,7 @@ func (p *fileLogger) moveFile(t time.Time) error {
 		return err
 	}
 
-	_, err = fileExecutor.Write(p.options.Filename, "")
+	_, err = p.fileRepo.Write(p.options.Filename, "")
 
 	return err
 }
@@ -135,18 +157,15 @@ func (p *fileLogger) removeOldFiles() error {
 		return nil
 	}
 
-	path := filepath.Dir(p.options.Filename)
-
 	// 获取日志文件列表
-	dirLis, err := ioutil.ReadDir(path)
+	dirLis, err := ioutil.ReadDir(p.dir())
 	if err != nil {
 		return err
 	}
 
 	// 根据文件名过滤日志文件
 	fileSort := FileSort{}
-	fileNameSplit := strings.Split(p.options.Filename, "/")
-	filePrefix := fmt.Sprintf("%s_", fileNameSplit[len(fileNameSplit)-1])
+	filePrefix := fmt.Sprintf("%s_", p.basename())
 	for _, f := range dirLis {
 		if strings.Contains(f.Name(), filePrefix) {
 			fileSort = append(fileSort, f)
@@ -160,11 +179,21 @@ func (p *fileLogger) removeOldFiles() error {
 	// 根据文件修改日期排序，保留最近的N个文件
 	sort.Sort(fileSort)
 	for _, f := range fileSort[p.options.MaxBackups:] {
-		err := os.Remove(path + "/" + f.Name())
+		err := os.Remove(filepath.Join(p.dir(), f.Name()))
 		if err != nil {
 			return err
 		}
 	}
 
 	return nil
+}
+
+// dir returns the directory for the current filename.
+func (p *fileLogger) dir() string {
+	return filepath.Dir(p.options.Filename)
+}
+
+// filename generates the name of the logfile from the current time.
+func (p *fileLogger) basename() string {
+	return filepath.Base(p.options.Filename)
 }

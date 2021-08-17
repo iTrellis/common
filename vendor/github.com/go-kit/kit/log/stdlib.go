@@ -1,7 +1,6 @@
 package log
 
 import (
-	"bytes"
 	"io"
 	"log"
 	"regexp"
@@ -27,11 +26,9 @@ func (w StdlibWriter) Write(p []byte) (int, error) {
 // messages, and place them under relevant keys.
 type StdlibAdapter struct {
 	Logger
-	timestampKey    string
-	fileKey         string
-	messageKey      string
-	prefix          string
-	joinPrefixToMsg bool
+	timestampKey string
+	fileKey      string
+	messageKey   string
 }
 
 // StdlibAdapterOption sets a parameter for the StdlibAdapter.
@@ -52,16 +49,6 @@ func MessageKey(key string) StdlibAdapterOption {
 	return func(a *StdlibAdapter) { a.messageKey = key }
 }
 
-// Prefix configures the adapter to parse a prefix from stdlib log events. If
-// you provide a non-empty prefix to the stdlib logger, then your should provide
-// that same prefix to the adapter via this option.
-//
-// By default, the prefix isn't included in the msg key. Set joinPrefixToMsg to
-// true if you want to include the parsed prefix in the msg.
-func Prefix(prefix string, joinPrefixToMsg bool) StdlibAdapterOption {
-	return func(a *StdlibAdapter) { a.prefix = prefix; a.joinPrefixToMsg = joinPrefixToMsg }
-}
-
 // NewStdlibAdapter returns a new StdlibAdapter wrapper around the passed
 // logger. It's designed to be passed to log.SetOutput.
 func NewStdlibAdapter(logger Logger, options ...StdlibAdapterOption) io.Writer {
@@ -78,8 +65,6 @@ func NewStdlibAdapter(logger Logger, options ...StdlibAdapterOption) io.Writer {
 }
 
 func (a StdlibAdapter) Write(p []byte) (int, error) {
-	p = a.handlePrefix(p)
-
 	result := subexps(p)
 	keyvals := []interface{}{}
 	var timestamp string
@@ -99,7 +84,6 @@ func (a StdlibAdapter) Write(p []byte) (int, error) {
 		keyvals = append(keyvals, a.fileKey, file)
 	}
 	if msg, ok := result["msg"]; ok {
-		msg = a.handleMessagePrefix(msg)
 		keyvals = append(keyvals, a.messageKey, msg)
 	}
 	if err := a.Logger.Log(keyvals...); err != nil {
@@ -108,30 +92,11 @@ func (a StdlibAdapter) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
-func (a StdlibAdapter) handlePrefix(p []byte) []byte {
-	if a.prefix != "" {
-		p = bytes.TrimPrefix(p, []byte(a.prefix))
-	}
-	return p
-}
-
-func (a StdlibAdapter) handleMessagePrefix(msg string) string {
-	if a.prefix == "" {
-		return msg
-	}
-
-	msg = strings.TrimPrefix(msg, a.prefix)
-	if a.joinPrefixToMsg {
-		msg = a.prefix + msg
-	}
-	return msg
-}
-
 const (
 	logRegexpDate = `(?P<date>[0-9]{4}/[0-9]{2}/[0-9]{2})?[ ]?`
 	logRegexpTime = `(?P<time>[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]+)?)?[ ]?`
 	logRegexpFile = `(?P<file>.+?:[0-9]+)?`
-	logRegexpMsg  = `(: )?(?P<msg>(?s:.*))`
+	logRegexpMsg  = `(: )?(?P<msg>.*)`
 )
 
 var (
@@ -145,7 +110,7 @@ func subexps(line []byte) map[string]string {
 	}
 	result := map[string]string{}
 	for i, name := range logRegexp.SubexpNames() {
-		result[name] = strings.TrimRight(string(m[i]), "\n")
+		result[name] = string(m[i])
 	}
 	return result
 }
