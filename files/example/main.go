@@ -19,6 +19,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/iTrellis/common/files"
 )
@@ -32,7 +33,7 @@ func main() {
 
 	f := files.New()
 
-	n, e := f.Write(oldpath, "testing 1\n")
+	n, e := f.Write(oldpath, "testing 1\n", files.WriteFlag(os.O_RDWR))
 	if e != nil {
 		fmt.Println("failed rewrite:", e)
 		return
@@ -56,12 +57,24 @@ func main() {
 	fmt.Println("read content:")
 	fmt.Println(string(b))
 
+	if e = f.Close(oldpath); e != nil {
+		fmt.Println("failed close oldpath", e)
+		return
+	}
+
+	n, e = f.WriteAppendBytes(oldpath, []byte("testing 2\n"), files.WriteFlag(os.O_WRONLY))
+	if e != nil {
+		fmt.Println("failed write append:", e)
+		return
+	}
+	fmt.Println("write append bytes:", n)
+
 	if e = f.Rename(oldpath, newpath); e != nil {
 		fmt.Println("failed rename:", e)
 		return
 	}
 
-	n, e = f.WriteAppendBytes(newpath, []byte("testing 2\n"))
+	n, e = f.WriteAppendBytes(newpath, []byte("testing 3\n"))
 	if e != nil {
 		fmt.Println("failed write append:", e)
 		return
@@ -81,4 +94,10 @@ func main() {
 	fmt.Println("read bytes:", n)
 	fmt.Println("content:")
 	fmt.Println(string(b))
+
+	e = f.CloseAll()
+	if e != nil {
+		fmt.Printf("failed close all file: %q", e.Error())
+		return
+	}
 }

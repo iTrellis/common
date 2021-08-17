@@ -43,6 +43,14 @@ func (p Errors) Append(errs ...error) Errors {
 	return p
 }
 
+// Errors 判断是否为空
+func (p Errors) Errors() error {
+	if len(p) == 0 {
+		return nil
+	}
+	return p
+}
+
 func errorsString(errs ...error) []string {
 	var ss []string
 	for _, e := range errs {

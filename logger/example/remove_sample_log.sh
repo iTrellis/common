@@ -15,5 +15,4 @@
 
 #!/bin/bash
 
-rm *.log*
-rm -f example
+\rm -f concurrency/*.log* simple/*.log* *.log* 
