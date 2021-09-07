@@ -5,7 +5,7 @@ go 1.13
 require (
 	github.com/codegangsta/inject v0.0.0-20150114235600-33e0aa1cb7c0
 	github.com/dimiro1/banner v1.1.0
-	github.com/go-kit/kit v0.11.0
+	github.com/go-kit/log v0.1.0
 	github.com/golang/snappy v0.0.4
 	github.com/google/uuid v1.3.0
 	github.com/json-iterator/go v1.1.11

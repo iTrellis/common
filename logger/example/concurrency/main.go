@@ -20,7 +20,7 @@ package main
 import (
 	"sync"
 
-	"github.com/go-kit/kit/log/level"
+	"github.com/go-kit/log/level"
 	"github.com/iTrellis/common/logger"
 	"go.uber.org/zap/zapcore"
 )
