@@ -57,7 +57,8 @@ func New(opts ...Option) FileRepo {
 	return defaultFile
 }
 
-func NewFileInfo(opts ...Option) FileRepo {
+// NewFileRepo return an new constraction of FileRepo
+func NewFileRepo(opts ...Option) FileRepo {
 	return new(opts...)
 }
 
@@ -66,7 +67,7 @@ func new(opts ...Option) FileRepo {
 	for _, o := range opts {
 		o(&options)
 	}
-	if options.ReadBufferLength == 0 {
+	if options.ReadBufferLength <= 0 {
 		options.ReadBufferLength = DefaultReadBufferLength
 	}
 	return &fileGem{
@@ -140,9 +141,9 @@ func (p *fileGem) read(name string, bufLen int) (b []byte, n int, err error) {
 	}
 	for {
 		buf := make([]byte, bufLen)
-		m, e := fi.Read(buf)
+		m, e := fi.ReadAt(buf, int64(n))
 		if e != nil && e != io.EOF {
-			err = ErrFailedReadFile
+			err = e
 			return
 		}
 		n += m
@@ -217,7 +218,7 @@ func (p *fileGem) Rename(oldpath, newpath string) error {
 
 func (p *fileGem) SetReadBufLength(l int64) error {
 	if l <= 0 {
-		return ErrReadBufferLengthBelowZero
+		return errors.New("read buffer must above zero")
 	}
 
 	atomic.StoreInt64(&p.options.ReadBufferLength, l)
