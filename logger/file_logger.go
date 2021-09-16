@@ -55,11 +55,6 @@ func NewFileLogger(opts ...FileOption) (*fileLogger, error) {
 		return nil, err
 	}
 
-	err = fw.init()
-	if err != nil {
-		return nil, err
-	}
-
 	return fw, err
 }
 
@@ -81,26 +76,13 @@ func (p *fileLogger) init() error {
 		return errors.New("file name not exist")
 	}
 
-	p.fileRepo = files.NewFileRepo(files.Concurrency())
-
-	_, err := p.fileRepo.FileInfo(p.options.Filename)
-	if err == nil {
-		// 说明文件存在
-		return nil
-	} else {
-		// 不是文件不存在错误，直接返回错误
-		if !os.IsNotExist(err) {
-			return err
-		}
-		// 没有文件创建文件
-		_, err = p.fileRepo.WriteAppend(p.options.Filename, "")
-		if err != nil {
-			return err
-		}
-	}
-
+	p.fileRepo = files.NewFileRepo(files.ConcurrencyRead())
 	if p.options.Separator == "" {
 		p.options.Separator = "\t"
+	}
+
+	if err := p.checkFile(); err != nil {
+		return err
 	}
 
 	return nil
@@ -109,7 +91,7 @@ func (p *fileLogger) init() error {
 func (p *fileLogger) Write(bs []byte) (int, error) {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
-	if err := p.checkFile(time.Now()); err != nil {
+	if err := p.checkFile(); err != nil {
 		return 0, err
 	}
 	return p.fileRepo.WriteAppendBytes(p.options.Filename, bs)
@@ -117,7 +99,7 @@ func (p *fileLogger) Write(bs []byte) (int, error) {
 
 func (p *fileLogger) Sync() error { return nil }
 
-func (p *fileLogger) checkFile(t time.Time) (err error) {
+func (p *fileLogger) checkFile() (err error) {
 
 	fi, err := p.fileRepo.FileInfo(p.options.Filename)
 	if err != nil {
@@ -126,6 +108,8 @@ func (p *fileLogger) checkFile(t time.Time) (err error) {
 		}
 		return nil
 	}
+
+	t := time.Now()
 
 	if p.options.MoveFileType.getMoveFileFlag(t) == p.options.MoveFileType.getMoveFileFlag(fi.ModTime()) &&
 		(p.options.MaxLength == 0 || (p.options.MaxLength > 0 && fi.Size() < p.options.MaxLength)) {

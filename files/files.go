@@ -135,7 +135,7 @@ func (p *fileGem) read(name string, bufLen int) (b []byte, n int, err error) {
 	}
 	p.Unlock()
 
-	if !p.options.Concurrency {
+	if !p.options.ConcurrencyRead {
 		fi.Lock()
 		defer fi.Unlock()
 	}
@@ -246,7 +246,7 @@ func (p *fileGem) write(name string, b []byte, opts ...WriteOption) (n int, err 
 	}
 	p.Unlock()
 
-	if !p.options.Concurrency {
+	if !p.options.ConcurrencyRead {
 		fi.Lock()
 		defer fi.Unlock()
 	}

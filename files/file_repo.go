@@ -50,7 +50,7 @@ type FileRepo interface {
 type Option func(*Options)
 type Options struct {
 	ReadBufferLength int64
-	Concurrency      bool
+	ConcurrencyRead  bool
 }
 
 func ReadBufferLength(rbuf int64) Option {
@@ -59,9 +59,9 @@ func ReadBufferLength(rbuf int64) Option {
 	}
 }
 
-func Concurrency() Option {
+func ConcurrencyRead() Option {
 	return func(o *Options) {
-		o.Concurrency = true
+		o.ConcurrencyRead = true
 	}
 }
 
