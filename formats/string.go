@@ -18,11 +18,12 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 package formats
 
 import (
-	"encoding/json"
 	"fmt"
 	"reflect"
 	"strconv"
 	"strings"
+
+	"github.com/iTrellis/common/json"
 )
 
 const Hidden = "<hidden>"

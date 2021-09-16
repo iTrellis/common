@@ -18,11 +18,11 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 package errors
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/iTrellis/common/json"
 )
 
 const (

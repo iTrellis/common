@@ -18,10 +18,10 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 package formats_test
 
 import (
-	"encoding/json"
 	"testing"
 
 	"github.com/iTrellis/common/formats"
+	"github.com/iTrellis/common/json"
 	"github.com/iTrellis/common/testutils"
 )
 

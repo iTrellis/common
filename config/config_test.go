@@ -18,12 +18,12 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 package config_test
 
 import (
-	"encoding/json"
 	"os"
 	"testing"
 	"time"
 
 	"github.com/iTrellis/common/config"
+	"github.com/iTrellis/common/json"
 	"github.com/iTrellis/common/shell"
 	"github.com/iTrellis/common/testutils"
 )
