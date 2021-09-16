@@ -81,7 +81,7 @@ func (p *fileLogger) init() error {
 		return errors.New("file name not exist")
 	}
 
-	p.fileRepo = files.NewFileInfo(files.Concurrency())
+	p.fileRepo = files.NewFileRepo(files.Concurrency())
 
 	_, err := p.fileRepo.FileInfo(p.options.Filename)
 	if err == nil {

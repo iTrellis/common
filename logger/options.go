@@ -59,9 +59,6 @@ type FileOptions struct {
 	MoveFileType MoveFileType `yaml:"move_file_type"`
 	// 最大保留日志个数，如果为0则全部保留
 	MaxBackups int `yaml:"max_backups"`
-
-	// 并发写入文件的操作
-	ConcurrencyWrite bool `yaml:"concurrency_write"`
 }
 
 func (p *FileOptions) Check() error {
@@ -185,11 +182,5 @@ func OptionMoveFileType(typ MoveFileType) FileOption {
 func OptionStdPrinters(ps []string) FileOption {
 	return func(f *FileOptions) {
 		f.StdPrinters = ps
-	}
-}
-
-func OptionConcurrencyWrite() FileOption {
-	return func(fo *FileOptions) {
-		fo.ConcurrencyWrite = true
 	}
 }

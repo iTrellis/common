@@ -27,11 +27,19 @@ import (
 )
 
 type Config struct {
-	Level        string
-	FileName     string
-	MoveFileType int
-	MaxLength    int64
-	MaxBackups   int
+	Level        string   `yaml:"level" json:"level"`
+	FileName     string   `yaml:"filename" json:"filename"`
+	MoveFileType int      `yaml:"move_file_type" json:"move_file_type"`
+	MaxLength    int64    `yaml:"max_length" json:"max_length"`
+	MaxBackups   int      `yaml:"max_backups" json:"max_backups"`
+	StdPrinters  []string `yaml:"std_printers" json:"std_printers"`
+	TimeFormat   string   `yaml:"time_format" json:"time_format"`
+}
+
+//UnmarshalYAML implements the yaml.Unmarshaler interface for Config.
+func (p *Config) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	type plain Config
+	return unmarshal((*plain)(p))
 }
 
 func New(config *Config) log.Logger {
@@ -41,7 +49,7 @@ func New(config *Config) log.Logger {
 			logger.OptionMoveFileType(logger.MoveFileType(config.MoveFileType)),
 			logger.OptionMaxLength(config.MaxLength),
 			logger.OptionMaxBackups(config.MaxBackups),
-			logger.OptionConcurrencyWrite(),
+			logger.OptionStdPrinters(config.StdPrinters),
 		),
 		logger.EncoderConfig(&zapcore.EncoderConfig{}),
 	)
@@ -49,9 +57,13 @@ func New(config *Config) log.Logger {
 		panic(err)
 	}
 
+	if config.TimeFormat == "" {
+		config.TimeFormat = "2006-01-02T15:04:05.000Z07:00"
+	}
+
 	timestampFormat := log.TimestampFormat(
 		func() time.Time { return time.Now() },
-		"2006-01-02T15:04:05.000Z07:00",
+		config.TimeFormat,
 	)
 	logger := level.NewFilter(stdLog, getLevel(config.Level))
 	logger = log.With(logger, "ts", timestampFormat, "caller", log.DefaultCaller)

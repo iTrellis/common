@@ -34,4 +34,6 @@ func AddFlags(a *kingpin.Application, config *prometheus.Config) {
 		Default("0").Int64Var(&config.MaxLength)
 	a.Flag("log.max-backups", "The maximum number of saved files, 0-Save all files.").
 		Default("10").IntVar(&config.MaxBackups)
+	a.Flag("log.std_printers", "The standard printers: stderr, stdout").StringsVar(&config.StdPrinters)
+	a.Flag("log.time_format", "The time format").Default("").StringVar(&config.TimeFormat)
 }
