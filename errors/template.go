@@ -60,11 +60,11 @@ func TN(namespace string, code uint64, message string) *ErrorCodeTmpl {
 
 type Option func(*Options)
 type Options struct {
-	Params  map[string]string
+	Params  Params
 	Callers int
 }
 
-func Parmas(ps map[string]string) Option {
+func ParamsOption(ps Params) Option {
 	return func(o *Options) {
 		o.Params = ps
 	}
@@ -84,7 +84,7 @@ func (p *ErrorCodeTmpl) New(opts ...Option) ErrorCode {
 	}
 
 	if options.Params == nil {
-		options.Params = make(map[string]string)
+		options.Params = make(map[string]interface{})
 	}
 
 	eCode := &errorCode{

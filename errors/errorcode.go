@@ -136,9 +136,7 @@ func NewErrorCode(ofs ...OptionFunc) ErrorCode {
 }
 
 func (p *errorCode) Append(errs ...error) ErrorCode {
-	for _, err := range errs {
-		p.errors = append(p.errors, err)
-	}
+	p.errors = append(p.errors, errs...)
 	return p
 }
 
